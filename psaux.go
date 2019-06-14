@@ -2,20 +2,21 @@ package dog
 
 import (
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"github.com/sirupsen/logrus"
 )
 
 type PsauxOut struct {
-	Pid  int
-	Pcpu uint32
-	Pmem uint32
-	Vsz  uint32
-	Rss  uint32
-	Line string
+	Pid    int
+	Pcpu   uint32
+	Pmem   uint32
+	VszKib uint32
+	RssKib uint32
+	Line   string
 }
 
 func PsauxSelf() PsauxOut {
@@ -33,17 +34,17 @@ func Psaux(pid int) PsauxOut {
 
 	n := strings.Fields(output)
 	return PsauxOut{
-		Pid:  ParseInt(n[1]),
-		Pcpu: uint32(ParseFloat32(n[2])),
-		Pmem: uint32(ParseFloat32(n[3])),
-		Vsz:  ParseKib(n[4]),
-		Rss:  ParseKib(n[5]),
-		Line: output,
+		Pid:    ParseInt(n[1]),
+		Pcpu:   uint32(ParseFloat32(n[2])),
+		Pmem:   uint32(ParseFloat32(n[3])),
+		VszKib: ParseUint32(n[4]),
+		RssKib: ParseUint32(n[5]),
+		Line:   output,
 	}
 }
 
-func ParseKib(s string) uint32 {
-	return uint32(ParseFloat32(s) * 1024)
+func ParseUint32(s string) uint32 {
+	return uint32(ParseInt(s))
 }
 
 func ParseInt(s string) int {
