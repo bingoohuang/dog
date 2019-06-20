@@ -1,14 +1,15 @@
 package dog
 
 import (
-	"github.com/sirupsen/logrus"
 	"os"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 // Dog 表示 看门狗
 type Dog struct {
-	MaxMem        uint32 // 看住最大内存使用
+	MaxMemKib     uint32 // 看住最大内存使用
 	MaxMemPercent uint32 // 看住最大内存占用比例(1-99)
 	MaxCpuPercent uint32 // 看住最大CPU占用比例(1-99)
 	BiteLive      bool   // 是否咬了不死
@@ -19,7 +20,7 @@ type Dog struct {
 	free   bool
 	cmd    chan CmdType
 
-	BiteListeners []BiteListener
+	biteListeners []BiteListener
 	pid           int
 }
 
@@ -31,21 +32,6 @@ const (
 	CmdCaging  // 收狗进狗笼
 )
 
-// NewMaxMemDog 创建最大内存使用看门狗
-func NewMaxMemDog(maxMem uint32) *Dog {
-	return &Dog{MaxMem: maxMem}
-}
-
-// NewMaxMemPercentDog 创建最大内存占用比例(1-99)看门狗
-func NewMaxMemPercentDog(maxMemPercent uint32) *Dog {
-	return &Dog{MaxMemPercent: maxMemPercent}
-}
-
-// NewMaxCpuPercentDog 创建最大CPU占用比例(1-99)看门狗
-func NewMaxCpuPercentDog(maxCpuPercent uint32) *Dog {
-	return &Dog{MaxCpuPercent: maxCpuPercent}
-}
-
 // BiteListener 咬人监听器
 type BiteListener interface {
 	Biting(barkType BiteFor, threshold, real uint32)
@@ -53,7 +39,7 @@ type BiteListener interface {
 
 // ListenBiting 监听狗咬事件
 func (d *Dog) ListenBiting(l BiteListener) {
-	d.BiteListeners = append(d.BiteListeners, l)
+	d.biteListeners = append(d.biteListeners, l)
 }
 
 // SetBite4Dead 设置是否直接咬死
@@ -124,18 +110,17 @@ func (d *Dog) watching() {
 type BiteFor int
 
 const (
-	BiteForNone          BiteFor = iota
-	BiteForMaxMem         // 超过最大内存咬人
-	BiteForMaxMemPercent  // 超过最大内存占比咬人
-	BiteForMaxCpuPercent  // 超过最大CPU占比咬人
+	BiteForMaxMem        BiteFor = iota + 1 // 超过最大内存咬人
+	BiteForMaxMemPercent                    // 超过最大内存占比咬人
+	BiteForMaxCpuPercent                    // 超过最大CPU占比咬人
 )
 
 func (d *Dog) watch() {
 	s := Psaux(d.pid)
 	logrus.Debugf("dog is watching %+v", s)
 
-	if d.MaxMem > 0 && s.Rss > d.MaxMem {
-		d.bite(BiteForMaxMem, d.MaxMem, s.Rss)
+	if d.MaxMemKib > 0 && s.RssKib > d.MaxMemKib {
+		d.bite(BiteForMaxMem, d.MaxMemKib, s.RssKib)
 	}
 
 	if d.MaxCpuPercent > 0 && s.Pcpu > d.MaxCpuPercent {
@@ -150,7 +135,7 @@ func (d *Dog) watch() {
 func (d *Dog) bite(biteFor BiteFor, threshold, real uint32) {
 	logrus.Warnf("Dog biting for %v, threshold %v, real %v", biteFor, threshold, real)
 
-	for _, l := range d.BiteListeners {
+	for _, l := range d.biteListeners {
 		l.Biting(biteFor, threshold, real)
 	}
 
