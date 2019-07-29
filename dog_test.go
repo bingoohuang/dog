@@ -37,7 +37,7 @@ func TestDog_FreeDog4Pid(t *testing.T) {
 func Test4Demo(t *testing.T) {
 	dog := &Dog{
 		MaxMemKib:     100 * 1024, // 最大内存 100M
-		MaxCpuPercent: 90,         // 最大CPU占比90%
+		MaxCPUPercent: 90,         // 最大CPU占比90%
 		MaxMemPercent: 90,         // 最大内存占比90%
 		BiteLive:      false,      // 咬了不活，直接死掉
 	}

@@ -9,19 +9,17 @@ import (
 
 // Dog 表示 看门狗
 type Dog struct {
-	MaxMemKib     uint32 // 看住最大内存使用
-	MaxMemPercent uint32 // 看住最大内存占用比例(1-99)
-	MaxCpuPercent uint32 // 看住最大CPU占用比例(1-99)
-	BiteLive      bool   // 是否咬了不死
-
 	TimerDuration time.Duration // 狗巡视周期
+	MaxMemKib     uint32        // 看住最大内存使用
+	MaxMemPercent uint32        // 看住最大内存占用比例(1-99)
+	MaxCPUPercent uint32        // 看住最大CPU占用比例(1-99)
+	pid           uint32
 
-	paused bool
-	free   bool
-	cmd    chan CmdType
-
+	cmd           chan CmdType
 	biteListeners []BiteListener
-	pid           int
+	BiteLive      bool // 是否咬了不死
+	paused        bool
+	free          bool
 }
 
 // CmdType 命令类型
@@ -29,7 +27,7 @@ type CmdType int
 
 const (
 	CmdNoop   CmdType = iota
-	CmdCaging  // 收狗进狗笼
+	CmdCaging         // 收狗进狗笼
 )
 
 // BiteListener 咬人监听器
@@ -54,11 +52,11 @@ func (d *Dog) CageDog() {
 
 // FreeDog 开始放狗看门
 func (d *Dog) FreeDog() {
-	d.FreeDog4Pid(os.Getpid())
+	d.FreeDog4Pid(uint32(os.Getpid()))
 }
 
 // FreeDog4Pid 开始放狗看门
-func (d *Dog) FreeDog4Pid(pid int) {
+func (d *Dog) FreeDog4Pid(pid uint32) {
 	if d.free {
 		return
 	}
@@ -112,7 +110,7 @@ type BiteFor int
 const (
 	BiteForMaxMem        BiteFor = iota + 1 // 超过最大内存咬人
 	BiteForMaxMemPercent                    // 超过最大内存占比咬人
-	BiteForMaxCpuPercent                    // 超过最大CPU占比咬人
+	BiteForMaxCPUPercent                    // 超过最大CPU占比咬人
 )
 
 func (d *Dog) watch() {
@@ -123,8 +121,8 @@ func (d *Dog) watch() {
 		d.bite(BiteForMaxMem, d.MaxMemKib, s.RssKib)
 	}
 
-	if d.MaxCpuPercent > 0 && s.Pcpu > d.MaxCpuPercent {
-		d.bite(BiteForMaxCpuPercent, d.MaxCpuPercent, s.Pcpu)
+	if d.MaxCPUPercent > 0 && s.Pcpu > d.MaxCPUPercent {
+		d.bite(BiteForMaxCPUPercent, d.MaxCPUPercent, s.Pcpu)
 	}
 
 	if d.MaxMemPercent > 0 && s.Pmem > d.MaxMemPercent {

@@ -3,10 +3,11 @@ package dog
 import (
 	"fmt"
 	"os"
-	"os/exec"
-	"strconv"
 	"strings"
+	"time"
 
+	"github.com/bingoohuang/cmd"
+	"github.com/bingoohuang/gou/str"
 	"github.com/sirupsen/logrus"
 )
 
@@ -20,46 +21,26 @@ type PsauxOut struct {
 }
 
 func PsauxSelf() PsauxOut {
-	return Psaux(os.Getpid())
+	return Psaux(uint32(os.Getpid()))
 }
 
-func Psaux(pid int) PsauxOut {
+func Psaux(pid uint32) PsauxOut {
 	ps := fmt.Sprintf(`ps aux |awk '$2 == %d { print $0 }'`, pid)
 
-	output, err := ExecShell(ps)
-	if err != nil {
-		logrus.Errorf("exec %s error %v", ps, err)
+	_, stat := cmd.Bash(ps, cmd.Timeout(1*time.Second))
+	if stat.Error != nil {
+		logrus.Errorf("exec %s error %v", ps, stat)
 		return PsauxOut{}
 	}
 
+	output := stat.Stdout[0]
 	n := strings.Fields(output)
 	return PsauxOut{
-		Pid:    ParseInt(n[1]),
-		Pcpu:   uint32(ParseFloat32(n[2])),
-		Pmem:   uint32(ParseFloat32(n[3])),
-		VszKib: ParseUint32(n[4]),
-		RssKib: ParseUint32(n[5]),
+		Pid:    str.ParseInt(n[1]),
+		Pcpu:   str.ParseUint32(n[2]),
+		Pmem:   str.ParseUint32(n[3]),
+		VszKib: str.ParseUint32(n[4]),
+		RssKib: str.ParseUint32(n[5]),
 		Line:   output,
 	}
-}
-
-func ParseUint32(s string) uint32 {
-	return uint32(ParseInt(s))
-}
-
-func ParseInt(s string) int {
-	v, _ := strconv.Atoi(s)
-	return v
-}
-
-func ParseFloat32(s string) float32 {
-	v, _ := strconv.ParseFloat(s, 32)
-	return float32(v)
-}
-
-func ExecShell(s string) (string, error) {
-	cmd := exec.Command("bash", "-c", s)
-	output, err := cmd.CombinedOutput()
-
-	return string(output), err
 }
