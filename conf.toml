@@ -1,0 +1,12 @@
+listenAddr = ":7569"
+
+
+[programs]
+
+    [programs.cat]
+    bash="cat"
+    maxMem="1024MiB"
+    timeout=""
+    poolSize=10
+    expectPrefix=""
+
