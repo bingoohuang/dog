@@ -11,7 +11,7 @@ listenAddr = ":7569"
     expectPrefix=""
 
     [programs.java]
-    bash="/usr/bin/java -jar /Users/bingoobjca/GitHub/execjar/target/execjar-0.0.1-exec.jar"
+    bash="/usr/bin/java -jar cmd/java/target/execjar-0.0.1-exec.jar"
     maxMem="50MiB"
     timeout="3s"
     poolSize=10
