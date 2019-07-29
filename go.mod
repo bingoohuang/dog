@@ -4,9 +4,8 @@ go 1.12
 
 require (
 	github.com/BurntSushi/toml v0.3.1
-	github.com/bingoohuang/cmd v0.0.0-20190729081955-17491717d9f4
+	github.com/bingoohuang/cmd v0.0.0-20190729124853-a491f455205f
 	github.com/bingoohuang/gou v0.0.0-20190724062522-59c35e658334
-	github.com/bingoohuang/now v0.0.0-20190715150822-ba8e4a91e3d9
 	github.com/docker/go-units v0.4.0
 	github.com/gin-gonic/gin v1.4.0
 	github.com/mitchellh/go-homedir v1.1.0

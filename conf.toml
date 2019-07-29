@@ -5,8 +5,14 @@ listenAddr = ":7569"
 
     [programs.cat]
     bash="cat"
-    maxMem="1024MiB"
+    maxMem="10MiB"
     timeout=""
     poolSize=10
     expectPrefix=""
 
+    [programs.java]
+    bash="/usr/bin/java -jar /Users/bingoobjca/GitHub/execjar/target/execjar-0.0.1-exec.jar"
+    maxMem="50MiB"
+    timeout="3s"
+    poolSize=10
+    expectPrefix=""

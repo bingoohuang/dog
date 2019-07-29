@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -35,6 +36,7 @@ type StateCode int
 const (
 	Succ StateCode = iota
 	Timeout
+	Error
 )
 
 type CompleteState struct {
@@ -48,11 +50,11 @@ type ProgramIn struct {
 }
 
 type Pool struct {
-	program  Program
-	inChan   chan ProgramIn
-	duration time.Duration
-	maxMem   int64
-	i        int
+	program   Program
+	inChan    chan ProgramIn
+	duration  time.Duration
+	maxMemKib int64
+	i         int
 }
 
 type CmdWrap struct {
@@ -121,23 +123,25 @@ func (p *Pool) restart(cmds []*CmdWrap, i int) {
 
 func (p *Pool) processOut(out string, cmds []*CmdWrap, i int) (finished bool) {
 	c := cmds[i]
-	ok := p.program.ExpectPrefix == "" || strings.HasPrefix(out, p.program.ExpectPrefix)
-	if ok {
-		c.in.CompleteChan <- CompleteState{StateCode: Succ, Data: out}
-	}
 
-	if p.maxMem > 0 {
+	if p.maxMemKib > 0 {
 		ps := dog.Psaux(uint32(c.c.Status().PID))
-		if int64(ps.RssKib)/1024 > p.maxMem {
+		if int64(ps.RssKib) > p.maxMemKib {
 			logrus.Warnf("PID:%d, %s reached maxMem %s, real %dKIB in=%s kill and restart",
 				c.c.Status().PID, p.program.Bash, p.program.MaxMem, ps.RssKib, c.in.In)
 			_ = c.c.Stop()
 			cmds[i].c = p.createCmd()
+			c.in.CompleteChan <- CompleteState{StateCode: Error,
+				Data: fmt.Sprintf("reached max memory, %s  > %s ",
+					units.HumanSize(float64(ps.RssKib*1024)), p.program.MaxMem)}
 			return true
 		}
 	}
 
+	ok := p.program.ExpectPrefix == "" || strings.HasPrefix(out, p.program.ExpectPrefix)
 	if ok {
+		c.in.CompleteChan <- CompleteState{StateCode: Succ, Data: out}
+
 		logrus.Infof("PID:%d, %s processed in=%s, out=%s",
 			c.c.Status().PID, p.program.Bash, c.in.In, out)
 		c.inLock.Lock()
@@ -161,13 +165,16 @@ func (p *Pool) createCmd() *cmd.Cmd {
 	}
 
 	if p.program.MaxMem != "" {
-		p.maxMem, err = units.FromHumanSize(p.program.MaxMem)
+		maxMem, err := units.FromHumanSize(p.program.MaxMem)
 		if err != nil {
 			logrus.Warnf("bad format for maxMem %s, error %v", p.program.MaxMem, err)
 		}
+
+		p.maxMemKib = maxMem / 1024
 	}
 
-	c := cmd.NewCmd(p.program.Bash)
+	cmdparts := strings.Fields(p.program.Bash)
+	c := cmd.NewCmd(cmdparts...)
 	c.Options(cmd.Stdin(), cmd.Streaming(), cmd.Buffered(false))
 	c.Start()
 	return c
@@ -248,7 +255,8 @@ func (a *App) Exec(c *gin.Context) {
 }
 
 func (a *App) noPoolExec(pg Program, c *gin.Context, in string) {
-	p := cmd.NewCmd("bash", "-c", pg.Bash)
+	cmdparts := strings.Fields(pg.Bash)
+	p := cmd.NewCmd(cmdparts...)
 	p.Options(cmd.Stdin())
 	chanStatuses := p.Start()
 
