@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bingoohuang/cmd"
 	"github.com/bingoohuang/dog"
 	"github.com/bingoohuang/gou/str"
 	"github.com/gin-gonic/gin"
+	"github.com/gobars/cmd"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
@@ -123,7 +123,7 @@ func (p *Pool) waitResult(c *cmd.Cmd, in ProgramIn) ResultState {
 
 func (p *Pool) restart(c *cmd.Cmd, in ProgramIn) {
 	logrus.Warnf("PID:%d, %s timeout %s in=%s kill and restart",
-		c.Status().PID, p.program.Bash, p.program.Timeout, in.In)
+		c.Status().PID, p.program.Cmd, p.program.Timeout, in.In)
 	in.CompleteChan <- CompleteState{
 		StateCode: Timeout,
 		Data:      "timeout in " + p.duration.String(),
@@ -136,7 +136,7 @@ func (p *Pool) processOut(out string, c *cmd.Cmd, in ProgramIn) ResultState {
 		ps := dog.Psaux(uint32(c.Status().PID))
 		if int64(ps.RssKib) > p.maxMemKib {
 			logrus.Warnf("PID:%d, %s reached maxMem %s, real %dKIB in=%s kill and restart",
-				c.Status().PID, p.program.Bash, p.program.MaxMem, ps.RssKib, in.In)
+				c.Status().PID, p.program.Cmd, p.program.MaxMem, ps.RssKib, in.In)
 			_ = c.Stop()
 			in.CompleteChan <- CompleteState{StateCode: Error,
 				Data: fmt.Sprintf("reached max memory, %s  > %s ",
@@ -145,12 +145,12 @@ func (p *Pool) processOut(out string, c *cmd.Cmd, in ProgramIn) ResultState {
 		}
 	}
 
-	ok := p.program.ExpectPrefix == "" || strings.HasPrefix(out, p.program.ExpectPrefix)
-	if ok {
+	prefix := p.program.ExpectPrefix
+	if prefix == "" || strings.HasPrefix(out, prefix) {
 		in.CompleteChan <- CompleteState{StateCode: Succ, Data: out}
 
 		logrus.Infof("PID:%d, %s processed in=%s, out=%s",
-			c.Status().PID, p.program.Bash, in.In, out)
+			c.Status().PID, p.program.Cmd, in.In, out)
 		return ResultOK
 	}
 
@@ -158,6 +158,14 @@ func (p *Pool) processOut(out string, c *cmd.Cmd, in ProgramIn) ResultState {
 }
 
 func (p *Pool) createCmd() *cmd.Cmd {
+	cmdparts := strings.Fields(p.program.Cmd)
+	c := cmd.NewCmd(cmdparts...)
+	c.Options(cmd.Stdin(), cmd.Streaming(), cmd.Buffered(false))
+	c.Start()
+	return c
+}
+
+func (p *Pool) init() {
 	var err error
 	if p.program.Timeout != "" {
 		p.duration, err = time.ParseDuration(p.program.Timeout)
@@ -177,12 +185,6 @@ func (p *Pool) createCmd() *cmd.Cmd {
 
 		p.maxMemKib = maxMem / 1024
 	}
-
-	cmdparts := strings.Fields(p.program.Bash)
-	c := cmd.NewCmd(cmdparts...)
-	c.Options(cmd.Stdin(), cmd.Streaming(), cmd.Buffered(false))
-	c.Start()
-	return c
 }
 
 // CreateAgApp 创建AgApp应用。
@@ -230,7 +232,7 @@ func (a *App) Register(c *gin.Context) {
 
 	key := c.Param("key")
 	a.Programs[key] = Program{
-		Bash:     c.Query("bash"),
+		Cmd:      c.Query("bash"),
 		MaxMem:   c.Query("maxMem"),
 		Timeout:  c.Query("timeout"),
 		PoolSize: str.ParseInt(c.Query("poolSize")),
@@ -260,7 +262,7 @@ func (a *App) Exec(c *gin.Context) {
 }
 
 func (a *App) noPoolExec(pg Program, c *gin.Context, in string) {
-	cmdparts := strings.Fields(pg.Bash)
+	cmdparts := strings.Fields(pg.Cmd)
 	p := cmd.NewCmd(cmdparts...)
 	p.Options(cmd.Stdin())
 	chanStatuses := p.Start()
@@ -313,6 +315,7 @@ func (a *App) tryPool(key string, program Program, in string) chan CompleteState
 			program: program,
 			inChan:  make(chan ProgramIn, program.PoolSize),
 		}
+		pool.init()
 		go pool.start()
 		a.Pools[key] = pool
 	}

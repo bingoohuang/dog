@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bingoohuang/cmd"
 	"github.com/bingoohuang/gou/str"
+	"github.com/gobars/cmd"
 	"github.com/sirupsen/logrus"
 )
 

@@ -10,7 +10,7 @@ type Conf struct {
 }
 
 type Program struct {
-	Bash         string
+	Cmd          string
 	MaxMem       string
 	Timeout      string
 	PoolSize     int

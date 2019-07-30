@@ -4,15 +4,15 @@ listenAddr = ":7569"
 [programs]
 
     [programs.cat]
-    bash="cat"
+    cmd="cat"
     maxMem="10MiB"
     timeout=""
     poolSize=10
     expectPrefix=""
 
     [programs.java]
-    bash="/usr/bin/java -jar cmd/java/target/execjar-0.0.1-exec.jar"
+    cmd="/usr/bin/java -jar cmd/java/target/execjar-0.0.1-exec.jar"
     maxMem="50MiB"
     timeout="3s"
-    poolSize=10
+    poolSize=3
     expectPrefix=""
