@@ -54,102 +54,107 @@ type Pool struct {
 	inChan    chan ProgramIn
 	duration  time.Duration
 	maxMemKib int64
-	i         int
-}
-
-type CmdWrap struct {
-	c *cmd.Cmd
-
-	inLock sync.Mutex
-	in     *ProgramIn
 }
 
 func (p *Pool) start() {
-	cmds := make([]*CmdWrap, p.program.PoolSize)
 	for i := 0; i < p.program.PoolSize; i++ {
-		cmds[i] = &CmdWrap{c: p.createCmd()}
+		go p.poolLoop()
 	}
+}
 
-	for in := range p.inChan {
-		for p.i++; !p.dispatch(cmds, in); {
+func (p *Pool) poolLoop() {
+	var c *cmd.Cmd
+	d := 10 * time.Second
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+
+	for {
+		select {
+		case in := <-p.inChan:
+			if c == nil {
+				c = p.createCmd()
+			}
+
+			c.Stdin <- in.In
+			if p.waitResult(c, in) == ResultRestart {
+				c = nil
+			}
+		case <-timer.C:
+			timer.Reset(d)
+			if c != nil {
+				_ = c.Stop()
+				c = nil
+			}
 		}
-	}
-}
 
-func (p *Pool) dispatch(cmds []*CmdWrap, in ProgramIn) bool {
-	i := p.i % len(cmds)
-	c := cmds[i]
-	c.inLock.Lock()
-	defer c.inLock.Unlock()
-	if c.in != nil {
-		return false
 	}
 
-	c.in = &in
-	c.c.Stdin <- c.in.In
-	go p.waitResult(cmds, i)
-	return true
 }
 
-func (p *Pool) waitResult(cmds []*CmdWrap, i int) {
+type ResultState int
+
+const (
+	ResultOK   ResultState = iota
+	ResultWait ResultState = iota
+	ResultRestart
+)
+
+func (p *Pool) waitResult(c *cmd.Cmd, in ProgramIn) ResultState {
 	timer := time.NewTimer(p.duration)
 	defer timer.Stop()
 
-	c := cmds[i]
 	for {
 		select {
-		case out := <-c.c.Stdout:
-			if p.processOut(out, cmds, i) {
-				return
+		case out := <-c.Stdout:
+			switch p.processOut(out, c, in) {
+			case ResultOK:
+				return ResultOK
+			case ResultWait:
+				continue
+			case ResultRestart:
+				return ResultRestart
 			}
 		case <-timer.C:
-			p.restart(cmds, i)
-			return
+			p.restart(c, in)
+			return ResultRestart
 		}
 	}
 }
 
-func (p *Pool) restart(cmds []*CmdWrap, i int) {
-	c := cmds[i]
+func (p *Pool) restart(c *cmd.Cmd, in ProgramIn) {
 	logrus.Warnf("PID:%d, %s timeout %s in=%s kill and restart",
-		c.c.Status().PID, p.program.Bash, p.program.Timeout, c.in.In)
-	c.in.CompleteChan <- CompleteState{
+		c.Status().PID, p.program.Bash, p.program.Timeout, in.In)
+	in.CompleteChan <- CompleteState{
 		StateCode: Timeout,
 		Data:      "timeout in " + p.duration.String(),
 	}
-	_ = c.c.Stop()
-	cmds[i].c = p.createCmd()
+	_ = c.Stop()
 }
 
-func (p *Pool) processOut(out string, cmds []*CmdWrap, i int) (finished bool) {
-	c := cmds[i]
-
+func (p *Pool) processOut(out string, c *cmd.Cmd, in ProgramIn) ResultState {
 	if p.maxMemKib > 0 {
-		ps := dog.Psaux(uint32(c.c.Status().PID))
+		ps := dog.Psaux(uint32(c.Status().PID))
 		if int64(ps.RssKib) > p.maxMemKib {
 			logrus.Warnf("PID:%d, %s reached maxMem %s, real %dKIB in=%s kill and restart",
-				c.c.Status().PID, p.program.Bash, p.program.MaxMem, ps.RssKib, c.in.In)
-			_ = c.c.Stop()
-			cmds[i].c = p.createCmd()
-			c.in.CompleteChan <- CompleteState{StateCode: Error,
+				c.Status().PID, p.program.Bash, p.program.MaxMem, ps.RssKib, in.In)
+			_ = c.Stop()
+			in.CompleteChan <- CompleteState{StateCode: Error,
 				Data: fmt.Sprintf("reached max memory, %s  > %s ",
 					units.HumanSize(float64(ps.RssKib*1024)), p.program.MaxMem)}
-			return true
+			return ResultRestart
 		}
 	}
 
 	ok := p.program.ExpectPrefix == "" || strings.HasPrefix(out, p.program.ExpectPrefix)
 	if ok {
-		c.in.CompleteChan <- CompleteState{StateCode: Succ, Data: out}
+		in.CompleteChan <- CompleteState{StateCode: Succ, Data: out}
 
 		logrus.Infof("PID:%d, %s processed in=%s, out=%s",
-			c.c.Status().PID, p.program.Bash, c.in.In, out)
-		c.inLock.Lock()
-		c.in = nil
-		c.inLock.Unlock()
+			c.Status().PID, p.program.Bash, in.In, out)
+		return ResultOK
 	}
 
-	return ok
+	return ResultWait
 }
 
 func (p *Pool) createCmd() *cmd.Cmd {
