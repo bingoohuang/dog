@@ -12,7 +12,7 @@ listenAddr = ":7569"
 
     [programs.java]
     cmd="/usr/bin/java -jar cmd/java/target/execjar-0.0.1-exec.jar"
-    maxMem="50MiB"
+    maxMem="1GiB"
     timeout="3s"
-    poolSize=3
+    poolSize=1
     expectPrefix=""

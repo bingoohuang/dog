@@ -103,6 +103,9 @@ func (p *Pool) waitResult(c *cmd.Cmd, in ProgramIn) ResultState {
 	timer := time.NewTimer(p.duration)
 	defer timer.Stop()
 
+	checkTimer := time.NewTicker(1 * time.Second)
+	defer checkTimer.Stop()
+
 	for {
 		select {
 		case out := <-c.Stdout:
@@ -114,6 +117,12 @@ func (p *Pool) waitResult(c *cmd.Cmd, in ProgramIn) ResultState {
 			case ResultRestart:
 				return ResultRestart
 			}
+		case <-checkTimer.C:
+			yes := p.reachesMaxMem(c, in)
+			if yes {
+				return ResultRestart
+			}
+
 		case <-timer.C:
 			p.restart(c, in)
 			return ResultRestart
@@ -132,17 +141,9 @@ func (p *Pool) restart(c *cmd.Cmd, in ProgramIn) {
 }
 
 func (p *Pool) processOut(out string, c *cmd.Cmd, in ProgramIn) ResultState {
-	if p.maxMemKib > 0 {
-		ps := dog.Psaux(uint32(c.Status().PID))
-		if int64(ps.RssKib) > p.maxMemKib {
-			logrus.Warnf("PID:%d, %s reached maxMem %s, real %dKIB in=%s kill and restart",
-				c.Status().PID, p.program.Cmd, p.program.MaxMem, ps.RssKib, in.In)
-			_ = c.Stop()
-			in.CompleteChan <- CompleteState{StateCode: Error,
-				Data: fmt.Sprintf("reached max memory, %s  > %s ",
-					units.HumanSize(float64(ps.RssKib*1024)), p.program.MaxMem)}
-			return ResultRestart
-		}
+	yes := p.reachesMaxMem(c, in)
+	if yes {
+		return ResultRestart
 	}
 
 	prefix := p.program.ExpectPrefix
@@ -155,6 +156,23 @@ func (p *Pool) processOut(out string, c *cmd.Cmd, in ProgramIn) ResultState {
 	}
 
 	return ResultWait
+}
+
+func (p *Pool) reachesMaxMem(c *cmd.Cmd, in ProgramIn) bool {
+	if p.maxMemKib > 0 {
+		ps := dog.Psaux(uint32(c.Status().PID))
+		if int64(ps.RssKib) > p.maxMemKib {
+			logrus.Warnf("PID:%d, %s reached maxMem %s, real %dKIB in=%s kill and restart",
+				c.Status().PID, p.program.Cmd, p.program.MaxMem, ps.RssKib, in.In)
+			_ = c.Stop()
+			in.CompleteChan <- CompleteState{StateCode: Error,
+				Data: fmt.Sprintf("reached max memory, %s  > %s ",
+					units.HumanSize(float64(ps.RssKib*1024)), p.program.MaxMem)}
+			return true
+		}
+	}
+
+	return false
 }
 
 func (p *Pool) createCmd() *cmd.Cmd {

@@ -1,9 +1,10 @@
 package com.github.bingoohuang.execjar;
 
 import lombok.SneakyThrows;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
-import java.util.ArrayList;
 
 /**
  * Just a main class.
@@ -29,14 +30,19 @@ public class Main {
         String inData;
         Scanner scan = new Scanner(System.in);
 
-        for (;;) {
-            System.out.print("Enter the data:");
+        FOR:
+        for (; ; ) {
             inData = scan.nextLine();
-            if (inData.equals("quit")) {
-                break;
+            switch (inData) {
+                case "quit":
+                    break FOR;
+                case "sleep":
+                    Thread.sleep(10000);
+                    System.out.println("You entered:" + inData);
+                    break;
+                default:
+                    System.out.println("You entered:" + inData);
             }
-
-            System.out.println("You entered:" + inData);
         }
 
         scan.close();
