@@ -27,7 +27,7 @@ func TestDog_FreeDog4Pid(t *testing.T) {
 
 	my := &MyListerner{}
 	dog.ListenBiting(my)
-	dog.FreeDog()
+	dog.StartWatch()
 
 	time.Sleep(300 * time.Millisecond)
 
@@ -42,7 +42,7 @@ func Test4Demo(t *testing.T) {
 		BiteLive:      false,      // 咬了不活，直接死掉
 	}
 
-	dog.FreeDog() // 放狗看门（不阻塞)
+	dog.StartWatch() // 放狗看门（不阻塞)
 
 	dog.CageDog() // 收狗不看门
 

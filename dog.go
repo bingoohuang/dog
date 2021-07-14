@@ -1,105 +1,75 @@
 package dog
 
 import (
+	"github.com/bingoohuang/gg/pkg/ss"
+	"log"
 	"os"
+	"strings"
+	"syscall"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 // Dog 表示 看门狗
 type Dog struct {
-	TimerDuration time.Duration // 狗巡视周期
-	MaxMemKib     uint32        // 看住最大内存使用
-	MaxMemPercent uint32        // 看住最大内存占用比例(1-99)
-	MaxCPUPercent uint32        // 看住最大CPU占用比例(1-99)
-	pid           uint32
-
-	cmd           chan CmdType
-	biteListeners []BiteListener
-	BiteLive      bool // 是否咬了不死
-	paused        bool
-	free          bool
+	Config *WatchConfig
+	stop   chan interface{}
 }
 
-// CmdType 命令类型
-type CmdType int
+func WithConfig(v WatchConfig) WatchOption  { return func(c *WatchConfig) { *c = v } }
+func WithTopn(v int) WatchOption            { return func(c *WatchConfig) { c.Topn = v } }
+func WithPid(v int) WatchOption             { return func(c *WatchConfig) { c.Pid = v } }
+func WithPpid(v int) WatchOption            { return func(c *WatchConfig) { c.Ppid = v } }
+func WithWatchSelf(v bool) WatchOption      { return func(c *WatchConfig) { c.Self = v } }
+func WithBitSignals(v string) WatchOption   { return func(c *WatchConfig) { c.BitSignals = v } }
+func WithMaxMem(v uint64) WatchOption       { return func(c *WatchConfig) { c.MaxMem = v } }
+func WithMaxPmem(v float32) WatchOption     { return func(c *WatchConfig) { c.MaxPmem = v } }
+func WithMaxPcpu(v float32) WatchOption     { return func(c *WatchConfig) { c.MaxPcpu = v } }
+func WithCmdFilter(v ...string) WatchOption { return func(c *WatchConfig) { c.CmdFilter = v } }
 
-const (
-	CmdNoop   CmdType = iota
-	CmdCaging         // 收狗进狗笼
-)
+func NewDog(options ...WatchOption) *Dog {
+	c := createWatchConfig(options)
+	log.Printf("dog with config: %+v created", c)
+	return &Dog{Config: c}
+}
 
 // BiteListener 咬人监听器
 type BiteListener interface {
 	Biting(barkType BiteFor, threshold, real uint32)
 }
 
-// ListenBiting 监听狗咬事件
-func (d *Dog) ListenBiting(l BiteListener) {
-	d.biteListeners = append(d.biteListeners, l)
+type WatchConfig struct {
+	Topn       int
+	Pid        int
+	Ppid       int
+	Self       bool
+	BitSignals string
+
+	Interval  time.Duration
+	MaxMem    uint64  // 看住最大内存使用
+	MaxPmem   float32 // 看住最大内存占用比例
+	MaxPcpu   float32 // 看住最大CPU占用比例
+	CmdFilter []string
 }
 
-// SetBite4Dead 设置是否直接咬死
-func (d *Dog) SetBite4Dead(bite4Dead bool) {
-	d.BiteLive = bite4Dead
+type WatchOption func(*WatchConfig)
+
+func (d *Dog) Stop() {
+	d.stop <- struct{}{}
 }
 
-// CageDog 收狗进狗笼
-func (d *Dog) CageDog() {
-	d.cmd <- CmdCaging
-}
+// StartWatch 开始放狗看门.
+func (d *Dog) StartWatch() {
+	ticker := time.NewTicker(d.Config.Interval)
+	defer ticker.Stop()
 
-// FreeDog 开始放狗看门
-func (d *Dog) FreeDog() {
-	d.FreeDog4Pid(uint32(os.Getpid()))
-}
-
-// FreeDog4Pid 开始放狗看门
-func (d *Dog) FreeDog4Pid(pid uint32) {
-	if d.free {
-		return
-	}
-
-	d.pid = pid
-	d.free = true
-	d.paused = false
-	d.cmd = make(chan CmdType)
-	go d.watching()
-}
-
-// PauseWatching 暂停看门
-func (d *Dog) PauseWatching() {
-	d.paused = true
-}
-
-// ResumeWatching 继续看门
-func (d *Dog) ResumeWatching() {
-	d.paused = false
-}
-
-func (d *Dog) watching() {
-	if d.TimerDuration == 0 {
-		d.TimerDuration = 60 * time.Second
-	}
-	timer := time.NewTimer(d.TimerDuration)
-	defer timer.Stop()
+	d.watch()
 
 	for {
 		select {
-		case cmd := <-d.cmd:
-			switch cmd {
-			case CmdCaging:
-				d.free = false
-				return
-			case CmdNoop:
-				// noop!
-			}
-		case <-timer.C:
-			timer.Reset(d.TimerDuration)
-			if !d.paused {
-				d.watch()
-			}
+		case <-d.stop:
+			return
+		case <-ticker.C:
+			d.watch()
 		}
 	}
 }
@@ -108,36 +78,94 @@ func (d *Dog) watching() {
 type BiteFor int
 
 const (
-	BiteForMaxMem        BiteFor = iota + 1 // 超过最大内存咬人
-	BiteForMaxMemPercent                    // 超过最大内存占比咬人
-	BiteForMaxCPUPercent                    // 超过最大CPU占比咬人
+	BiteForNone    BiteFor = iota // 不咬
+	BiteForMaxMem                 // 超过最大内存咬人
+	BiteForMaxPmem                // 超过最大内存占比咬人
+	BiteForMaxPcpu                // 超过最大CPU占比咬人
 )
 
 func (d *Dog) watch() {
-	s := Psaux(d.pid)
-	logrus.Debugf("dog is watching %+v", s)
-
-	if d.MaxMemKib > 0 && s.RssKib > d.MaxMemKib {
-		d.bite(BiteForMaxMem, d.MaxMemKib, s.RssKib)
+	c := d.Config
+	items, err := PsAuxTop(c.Topn, 0)
+	if err != nil {
+		log.Printf("ps aux error: %v", err)
+		return
 	}
 
-	if d.MaxCPUPercent > 0 && s.Pcpu > d.MaxCPUPercent {
-		d.bite(BiteForMaxCPUPercent, d.MaxCPUPercent, s.Pcpu)
-	}
+	pid := os.Getpid()
 
-	if d.MaxMemPercent > 0 && s.Pmem > d.MaxMemPercent {
-		d.bite(BiteForMaxMemPercent, d.MaxMemPercent, s.Pmem)
+	for _, item := range items {
+		if d.Filter(item) {
+			continue
+		}
+		if c.Pid > 0 && item.Pid != c.Pid || c.Ppid > 0 && item.Ppid != c.Ppid || c.Self && c.Pid != pid {
+			continue
+		}
+		if !c.Self && c.Pid == pid { // 不看自己，跳过自己
+			continue
+		}
+
+		biteFor := BiteForNone
+		switch {
+		case c.MaxMem > 0 && item.Rss > c.MaxMem:
+			biteFor = BiteForMaxMem
+		case c.MaxPmem > 0 && item.Pmem > c.MaxPmem:
+			biteFor = BiteForMaxPmem
+		case c.MaxPcpu > 0 && item.Pcpu > c.MaxPcpu:
+			biteFor = BiteForMaxPcpu
+		}
+		if biteFor != BiteForNone {
+			d.bite(biteFor, item)
+		}
 	}
 }
 
-func (d *Dog) bite(biteFor BiteFor, threshold, real uint32) {
-	logrus.Warnf("Dog biting for %v, threshold %v, real %v", biteFor, threshold, real)
+// Ctrl+C - SIGINT
+// Ctrl+\ - SIGQUIT
+// Ctrl+Z - SIGTSTP
+var signalMap = map[string]syscall.Signal{
+	"INT":  syscall.SIGINT,
+	"TERM": syscall.SIGTERM,
+	"QUIT": syscall.SIGQUIT,
+	"KILL": syscall.SIGKILL,
+	"USR1": syscall.SIGUSR1,
+	"USR2": syscall.SIGUSR2,
+}
 
-	for _, l := range d.biteListeners {
-		l.Biting(biteFor, threshold, real)
+func (d *Dog) bite(biteFor BiteFor, item PsAuxItem) {
+	log.Printf("Dog biting for %v, item %+v", biteFor, item)
+
+	for k, v := range signalMap {
+		if ss.ContainsFold(d.Config.BitSignals, k) {
+			if err := syscall.Kill(item.Pid, v); err != nil {
+				log.Printf("E! Kill %s to %d, err: %v", v, item.Pid, err)
+			} else {
+				log.Printf("Kill %s to %d succeeded", v, item.Pid)
+			}
+		}
+	}
+}
+
+func (d *Dog) Filter(item PsAuxItem) bool {
+	for _, cf := range d.Config.CmdFilter {
+		if strings.HasPrefix(cf, "!") {
+			if ss.ContainsFold(item.Command, cf[1:]) {
+				return true // 配置不能包含，但是包含，过滤掉
+			}
+		} else {
+			if !ss.ContainsFold(item.Command, cf) {
+				return true // 配置包含，但是不包含，过滤掉
+			}
+		}
 	}
 
-	if !d.BiteLive {
-		logrus.Panicf("Dog biting for %v, threshold %v, real %v", biteFor, threshold, real)
+	return false
+}
+
+func createWatchConfig(options []WatchOption) *WatchConfig {
+	c := &WatchConfig{Interval: 10 * time.Second, BitSignals: "INT"}
+	for _, option := range options {
+		option(c)
 	}
+	return c
 }
