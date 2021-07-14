@@ -2,6 +2,12 @@
 
 watchdog for RSS/CPU
 
+## 编译
+
+- `go install -trimpath -ldflags='-extldflags=-static -s -w' ./...`
+- `GOOS=linux GOARCH=amd64 go install -trimpath -ldflags='-extldflags=-static -s -w' ./...`
+- `ldd /usr/local/bin/busy`
+
 ## 部署
 
 1. `dog --init` 在当前目录创建 `ctl` 脚本和 示例 `dog.yml`
