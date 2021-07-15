@@ -18,20 +18,23 @@ import (
 func main() {
 	var cores int
 	var p int
+	var lockOsThread bool
 	var duration time.Duration
 	var memory string
 
 	numCPU := runtime.NumCPU()
 	flag.IntVar(&cores, "c", numCPU, "")
 	flag.IntVar(&p, "p", 100, "")
+	flag.BoolVar(&lockOsThread, "l", false, "")
 	flag.StringVar(&memory, "m", "", "")
 	flag.DurationVar(&duration, "d", 0, "")
 	flag.Usage = func() {
 		fmt.Printf(`Usage of busy (v1.0.0 2021-07-15):
-  -c int 使用核数，默认 %d
+  -c int      使用核数，默认 %d
+  -p int      每核 CPU 百分比 (默认 100), 0 时不开启 CPU 耗用
+  -l          是否在 CPU 耗用时锁定 OS 线程
+  -m string   总内存耗用，默认不开启, eg. 1) 10M 直达10M 2) 10M,1K/10s 总10M,每10秒加1K
   -d duration 跑多久，默认一直跑
-  -m string 总内存耗用，默认不开启, eg. 1) 10M 直达10M 2) 10M,1K/10s 总10M,每10秒加1K
-  -p int 每核CPU百分比 (默认 100), 0 时不开启 CPU 耗用
 `, runtime.NumCPU())
 	}
 	flag.Parse()
@@ -66,7 +69,7 @@ func main() {
 
 	if p > 0 {
 		log.Printf("run %d%% of %d/%d CPU cores %s.", p, cores, numCPU, printDuration(duration))
-		go RunCPULoad(cores, p)
+		go RunCPULoad(cores, p, lockOsThread)
 	}
 
 	if memory == "" && p == 0 {
@@ -143,7 +146,7 @@ func printDuration(d time.Duration) string {
 }
 
 // RunCPULoad run CPU load in specify cores count and percentage
-func RunCPULoad(coresCount int, percentage int) {
+func RunCPULoad(coresCount, percentage int, lockOsThread bool) {
 	runtime.GOMAXPROCS(coresCount)
 
 	// second     ,s  * 1
@@ -155,22 +158,35 @@ func RunCPULoad(coresCount int, percentage int) {
 
 	// 1 unit = 100 ms may be the best
 	const unitHundredOfMs = 1000
-	runMicrosecond := unitHundredOfMs * percentage
-	sleepMicrosecond := unitHundredOfMs*100 - runMicrosecond
+	runMs := unitHundredOfMs * percentage
+	sleepMs := unitHundredOfMs*100 - runMs
+	runDuration := time.Duration(runMs) * time.Microsecond
+	sleepDuration := time.Duration(sleepMs) * time.Microsecond
 	for i := 0; i < coresCount; i++ {
 		go func() {
-			runtime.LockOSThread()
-			// endless loop
-			for {
+			if lockOsThread {
+				// https://github.com/golang/go/wiki/LockOSThread
+				// Some libraries—especially graphical frameworks and libraries like Cocoa, OpenGL, and libSDL—use thread-local state and can require functions to be called only
+				// from a specific OS thread, typically the 'main' thread. Go provides the runtime. LockOSThread function for this, but it's notoriously difficult to use correctly.
+				// https://stackoverflow.com/a/25362395
+				// With the Go threading model, calls to C code, assembler code, or blocking system calls occur in the same thread as the calling Go code, which is managed by the Go runtime scheduler.
+				// The os.LockOSThread() mechanism is mostly useful when Go has to interface with some foreign library (a C library for instance). It guarantees that several successive calls to this library will be done in the same thread.
+				// This is interesting in several situations:
+				//   1. a number of graphic libraries (OS X Cocoa, OpenGL, SDL, ...) require all the calls to be done on a specific thread (or the main thread in some cases).
+				//   2. some foreign libraries are based on thread local storage (TLS) facilities. They store some context in a data structure attached to the thread. Or some functions of the API provide results whose memory lifecycle is attached to the thread. This concept is used in both Windows and Unix-like systems. A typical example is the errno global variable commonly used in C libraries to store error codes. On systems supporting multi-threading, errno is generally defined as a thread-local variable.
+				//   3. more generally, some foreign libraries may use a thread identifier to index/manage internal resources.
+				//   4. doing any sort of linux namespace switch (e.g. unsharing a network or process namespace) is also bound to a thread, so if you don't lock the OS thread before you might get part of your code randomly scheduled into a different network/process namespace.
+				runtime.LockOSThread()
+				// runtime.UnlockOSThread()
+			}
+			for { // endless loop
 				begin := time.Now()
-				for {
-					// run 100%
-					if time.Now().Sub(begin) > time.Duration(runMicrosecond)*time.Microsecond {
+				for { // run 100%
+					if time.Now().Sub(begin) > runDuration {
 						break
 					}
 				}
-				// sleep
-				time.Sleep(time.Duration(sleepMicrosecond) * time.Microsecond)
+				time.Sleep(sleepDuration)
 			}
 		}()
 	}
