@@ -22,10 +22,10 @@ func main() {
 	var memory string
 
 	numCPU := runtime.NumCPU()
-	flag.IntVar(&cores, "c", numCPU, "使用核数")
-	flag.IntVar(&percentage, "p", 100, "每核CPU百分比")
-	flag.StringVar(&memory, "m", "", "总内存,增量, eg. 1) 10M 直接达到10M 2) 10M,1K/10s 总用量10M,每10秒增加1K")
-	flag.DurationVar(&duration, "d", 0, "跑多久")
+	flag.IntVar(&cores, "c", numCPU, "")
+	flag.IntVar(&percentage, "p", 100, "")
+	flag.StringVar(&memory, "m", "", "")
+	flag.DurationVar(&duration, "d", 0, "")
 	flag.Usage = func() {
 		fmt.Printf(`Usage of busy:
   -c int 使用核数，默认 %d
@@ -89,11 +89,14 @@ func controlMem(memory string) {
 	for {
 		item := findItem(pid)
 		if item.Rss >= totalMem {
-			break
+			mem = nil
+			runtime.GC()
 		}
 
 		if per == 0 {
 			mem = make([]byte, totalMem-item.Rss)
+			runtime.GC()
+			time.Sleep(1 * time.Second)
 		} else {
 			mem = append(mem, make([]byte, incrMem)...)
 			time.Sleep(per)
