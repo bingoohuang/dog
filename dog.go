@@ -114,6 +114,8 @@ func (b BiteFor) String() string {
 	return "啥都没超"
 }
 
+var pid = os.Getpid()
+
 func (d *Dog) watch() {
 	c := d.Config
 	items, err := PsAuxTop(c.Topn, 0)
@@ -121,8 +123,6 @@ func (d *Dog) watch() {
 		log.Printf("ps aux error: %v", err)
 		return
 	}
-
-	pid := os.Getpid()
 
 	for _, item := range items {
 		if d.Filter(item) {
@@ -180,7 +180,7 @@ var signalMap = map[string]syscall.Signal{
 
 func (d *Dog) bite(biteFor BiteFor, item PsAuxItem) {
 	c := d.Config
-	if c.limiter != nil && c.limiter.Allow() {
+	if c.limiter != nil && c.limiter.Allow(item.Pid) {
 		log.Printf("Dog barking for %s, config:%s, item %+v", biteFor, c.RateConfig, item)
 		return
 	}
@@ -234,11 +234,7 @@ func createWatchConfig(options []WatchOption) *WatchConfig {
 	}
 
 	if c.RateConfig != nil {
-		c.limiter, _ = NewLimiter(c.RateConfig.Duration, c.RateConfig.Times, func() (Window, StopFunc) {
-			// NewLocalWindow returns an empty stop function, so it's
-			// unnecessary to call it later.
-			return NewLocalWindow()
-		})
+		c.limiter = c.RateConfig.NewLimiter()
 	}
 
 	return c
@@ -262,11 +258,50 @@ var logItemsRegister = map[string]func(PsAuxItem) string{
 }
 
 type RateConfig struct {
-	Times    int64
+	Times    int
 	Duration time.Duration
 }
 
 func (r RateConfig) String() string { return fmt.Sprintf("%d/%s", r.Times, r.Duration) }
+
+func (r RateConfig) NewLimiter() *Limiter {
+	return &Limiter{RateConfig: r, Series: map[int]*[]time.Time{}}
+}
+
+type Limiter struct {
+	RateConfig
+	Series map[int]*[]time.Time
+}
+
+func (l *Limiter) Allow(key int) bool {
+	now := time.Now()
+
+	for k, v := range l.Series {
+		for i, t := range *v {
+			if now.Sub(t) < l.Duration {
+				n := copy(*v, (*v)[i:])
+				*v = (*v)[:n]
+				break
+			}
+		}
+		if len(*v) == 0 {
+			delete(l.Series, k)
+		}
+	}
+
+	if ts, ok := l.Series[key]; ok {
+		*ts = append(*ts, now)
+		if len(*ts) >= l.Times {
+			delete(l.Series, key)
+			return false
+		}
+	} else {
+		ts := []time.Time{now}
+		l.Series[key] = &ts
+	}
+
+	return true
+}
 
 var ErrBadRateConfig = errors.New("bad format for rate config, eg 10/30s")
 
@@ -281,7 +316,7 @@ func ParseRateConfig(expr string) (*RateConfig, error) {
 	}
 
 	timesPart := expr[:pos]
-	times := ss.ParseInt64(timesPart)
+	times := ss.ParseInt(timesPart)
 	if times <= 0 {
 		return nil, ErrBadRateConfig
 	}

@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func (Config) VersionInfo() string { return "dog v1.2.0 2021-07-15 10:30:22" }
+func (Config) VersionInfo() string { return "dog v1.2.1 2021-07-15 12:41:32" }
 
 func (c Config) Usage() string {
 	return fmt.Sprintf(`Usage of dog:
@@ -56,12 +56,18 @@ type Config struct {
 	MaxPcpu    int
 	Filter     []string
 
-	Version bool `flag:"v" usage:"Print version info and exit"`
+	Version    bool `flag:"v" usage:"Print version info and exit"`
+	rateConfig *dog.RateConfig
 }
 
 func (c *Config) PostProcess() {
 	if c.MaxPcpu == 0 {
 		c.MaxPcpu = runtime.NumCPU() * 50
+	}
+
+	var err error
+	if c.rateConfig, err = dog.ParseRateConfig(c.Cond); err != nil {
+		log.Fatalf("ParseRateConfig error: %v", err)
 	}
 }
 
@@ -72,12 +78,6 @@ func main() {
 	c := &Config{}
 	flagparse.Parse(c, flagparse.AutoLoadYaml("c", "dog.yml"))
 	ctl.Config{Initing: c.Init, InitFiles: initAssets}.ProcessInit()
-
-	rateConfig, err := dog.ParseRateConfig(c.Cond)
-	if err != nil {
-		log.Fatalf("ParseRateConfig error: %v", err)
-	}
-
 	golog.SetupLogrus()
 
 	watchConfig := dog.WatchConfig{
@@ -95,7 +95,7 @@ func main() {
 		MaxPmem:     float32(c.MaxPmem),
 		MaxPcpu:     float32(c.MaxPcpu),
 		CmdFilter:   c.Filter,
-		RateConfig:  rateConfig,
+		RateConfig:  c.rateConfig,
 	}
 
 	d := dog.NewDog(dog.WithConfig(watchConfig))
