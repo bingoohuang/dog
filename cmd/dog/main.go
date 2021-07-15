@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func (Config) VersionInfo() string { return "dog v1.1.0 2021-07-15 09:31:43" }
+func (Config) VersionInfo() string { return "dog v1.2.0 2021-07-15 10:30:22" }
 
 func (c Config) Usage() string {
 	return fmt.Sprintf(`Usage of dog:
@@ -21,6 +21,8 @@ func (c Config) Usage() string {
   -cond string 发送条件，默认触发1次就发信号，eg.3/30s，在30s内发生3次，则触发 
   -kill string 发送信号，多个逗号分隔，eg. INT,TERM,KILL,QUIT,USR1,USR2 (默认 INT)
   -log  string 记录日志信息，多个逗号分隔，eg. ENV,CWD
+  -max-time value 允许最大启动时长 (默认 0，不检查启动时长)
+  -max-time-env value 允许最大启动时长包含的环境变量
   -max-mem value 允许最大内存 (默认 0B，不检查内存)
   -max-pcpu int 允许内存最大百分比, eg. 1-%d (默认 %d), 0 不查 CPU
   -max-pmem int 允许CPU最大百分比, eg. 1-100 (默认 50)
@@ -38,19 +40,21 @@ type Config struct {
 	Config string `flag:"c" usage:"yaml config filepath"`
 	Init   bool   `usage:"init example dog.yml/ctl and then exit"`
 
-	Topn    int
-	Pid     int
-	Ppid    int
-	Self    bool
-	Kill    string `val:"INT"`
-	Log     string
-	Cond    string
-	Span    time.Duration `val:"10s"`
-	Jitter  time.Duration `val:"1s"`
-	MaxMem  uint64        `size:"true"`
-	MaxPmem int           `val:"50"`
-	MaxPcpu int
-	Filter  []string
+	Topn       int
+	Pid        int
+	Ppid       int
+	Self       bool
+	Kill       string `val:"INT"`
+	Log        string
+	Cond       string
+	Span       time.Duration `val:"10s"`
+	Jitter     time.Duration `val:"1s"`
+	MaxTime    time.Duration
+	MaxTimeEnv string
+	MaxMem     uint64 `size:"true"`
+	MaxPmem    int    `val:"50"`
+	MaxPcpu    int
+	Filter     []string
 
 	Version bool `flag:"v" usage:"Print version info and exit"`
 }
@@ -85,6 +89,8 @@ func main() {
 		LogItems:    ss.Split(c.Log, ss.WithUpper(), ss.WithIgnoreEmpty(), ss.WithTrimSpace()),
 		Interval:    c.Span,
 		Jitter:      c.Jitter,
+		MaxTime:     c.MaxTime,
+		MaxTimeEnv:  c.MaxTimeEnv,
 		MaxMem:      c.MaxMem,
 		MaxPmem:     float32(c.MaxPmem),
 		MaxPcpu:     float32(c.MaxPcpu),

@@ -47,6 +47,35 @@ $ GOLOG_STDOUT=true dog -max-pcpu 500 -filter busy -cond 2/30s -log ENV,CWD
 2021/07/14 16:32:06 received signal interrupt, exiting
 ```
 
+## 运行时长
+
+启动测试目标：
+
+```sh
+$ SHORT_TASK=true busy -p20
+2021/07/15 10:27:56 busy starting, pid 63610
+2021/07/15 10:27:56  run 20% of 12/12 CPU cores forever.
+2021/07/15 10:29:09 received signal interrupt, exiting
+```
+
+放狗，咬死超过10s：
+
+```sh
+$ GOLOG_STDOUT=true dog -max-time 10s -max-time-env SHORT_TASK -cond 2/30s -log ENV,CWD
+2021-07-15 10:28:11.375 [INFO ] 64264 --- [1    ] [-]  : log file created:~/logs/dog/dog.log
+2021-07-15 10:28:11.376 [INFO ] 64264 --- [1    ] [-]  : dog with config: &{Topn:0 Pid:0 Ppid:0 Self:false KillSignals:[INT KILL] Interval:10s MaxMem:0 MaxPmem:50 MaxPcpu:300 CmdFilter:[] LogItems:[ENV CWD] RateConfig:2/30s limiter:0xc0001100c0 Jitter:1s MaxTime:10s MaxTimeEnv:SHORT_TASK} created
+2021-07-15 10:28:19.048 [INFO ] 64264 --- [1    ] [-]  : Dog barking for 运行时长超了, config:2/30s, item User: bingoobjca Pid: 63610 Ppid: 66509 %cpu: 203.6 %mem: 0 VSZ: 5.1GB, RSS: 3.7MB Tty: s002 Stat: S+ Start: 2021-07-15 02:27:e: 0:33.48 Command: busy -p20
+2021-07-15 10:28:29.673 [INFO ] 64264 --- [1    ] [-]  : Dog barking for 运行时长超了, config:2/30s, item User: bingoobjca Pid: 63610 Ppid: 66509 %cpu: 230.4 %mem: 0 VSZ: 5.1GB, RSS: 3.7MB Tty: s002 Stat: S+ Start: 2021-07-15 02:27:e: 0:54.87 Command: busy -p20
+2021-07-15 10:28:38.654 [INFO ] 64264 --- [1    ] [-]  : Dog barking for 运行时长超了, config:2/30s, item User: bingoobjca Pid: 63610 Ppid: 66509 %cpu: 208.1 %mem: 0 VSZ: 5.1GB, RSS: 3.7MB Tty: s002 Stat: S+ Start: 2021-07-15 02:27:e: 1:16.40 Command: busy -p20
+2021-07-15 10:28:49.925 [INFO ] 64264 --- [1    ] [-]  : Dog barking for 运行时长超了, config:2/30s, item User: bingoobjca Pid: 63610 Ppid: 66509 %cpu: 206.8 %mem: 0 VSZ: 5.1GB, RSS: 3.7MB Tty: s002 Stat: R+ Start: 2021-07-15 02:27:e: 1:39.28 Command: busy -p20
+2021-07-15 10:29:00.074 [INFO ] 64264 --- [1    ] [-]  : Dog barking for 运行时长超了, config:2/30s, item User: bingoobjca Pid: 63610 Ppid: 66509 %cpu: 232.4 %mem: 0 VSZ: 5.1GB, RSS: 3.8MB Tty: s002 Stat: R+ Start: 2021-07-15 02:27:e: 2:00.14 Command: busy -p20
+2021-07-15 10:29:09.495 [INFO ] 64264 --- [1    ] [-]  : Dog biting for 运行时长超了, item User: bingoobjca Pid: 63610 Ppid: 66509 %cpu: 239.6 %mem: 0 VSZ: 5.1GB, RSS: 3.8MB Tty: s002 Stat: S+ Start: 2021-07-15 02:27:56 Time: 2:21.0and: busy -p20
+2021-07-15 10:29:09.509 [INFO ] 64264 --- [1    ] [-]  : LogItem: ENV, Value: 63610 s002  S+     2:38.94 busy -p20 PATH=/usr/local/go/bin:/Users/bingoobjca/go/bin:/usr/local/Cellar/mysql-client/8.0.23/bin:/Users/bingoobjca/go/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Applications/VMware Fusion.app/Contents/Public:/Library/TeX/texbin:/usr/local/go/bin:/usr/local/aria2/bin:/Users/bingoobjca/.cargo/bin:/Users/bingoobjca/.fzf/bin TERM=xterm-256color COMMAND_MODE=unix2003 __INTELLIJ_COMMAND_HISTFILE__=/Users/bingoobjca/Library/Caches/JetBrains/GoLand2021.1/terminal/history/dog-history1 LOGNAME=bingoobjca XPC_SERVICE_NAME=0 __CFBundleIdentifier=com.jetbrains.goland SHELL=/bin/zsh GOPATH=/Users/bingoobjca/go USER=bingoobjca GOROOT=/usr/local/go TMPDIR=/var/folders/c8/ft7qp47d6lj5579gmyflxbr80000gn/T/ TERMINAL_EMULATOR=JetBrains-JediTerm LOGIN_SHELL=1 GO111MODULE=on SSH_AUTH_SOCK=/private/tmp/com.apple.launchd.O4JlykSOLq/Listeners XPC_FLAGS=0x0 TERM_SESSION_ID=3beeb8a3-2d1f-479c-9165-2514faed7d26 __CF_USER_TEXT_ENCODING=0x1F5:0x19:0x34 LC_CTYPE=zh_CN.UTF-8 HOME=/Users/bingoobjca SHLVL=1 PWD=/Users/bingoobjca/github/dog OLDPWD=/Users/bingoobjca/github/dog ZSH=/Users/bingoobjca/.oh-my-zsh PAGER=less LESS=-R LSCOLORS=Gxfxcxdxbxegedabagacad http_proxy=http://127.0.0.1:9999 HTTP_PROXY=http://127.0.0.1:9999 https_proxy=http://127.0.0.1:9999 HTTPS_PROXY=http://127.0.0.1:9999 all_proxy=http://127.0.0.1:10000 ALL_PROXY=http://127.0.0.1:10000 HSTR_CONFIG=hicolor SHORT_TASK=true _=/Users/bingoobjca/go/bin/busy
+2021-07-15 10:29:09.529 [INFO ] 64264 --- [1    ] [-]  : LogItem: CWD, Value: /Users/bingoobjca/github/dog
+2021-07-15 10:29:09.529 [INFO ] 64264 --- [1    ] [-]  : Kill interrupt to 63610 succeeded
+2021-07-15 10:29:09.529 [INFO ] 64264 --- [1    ] [-]  : Kill killed to 63610 succeeded
+```
+
 ## help
 
 ```sh

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/bingoohuang/gg/pkg/ss"
+	"github.com/bingoohuang/gg/pkg/timex"
 	"github.com/gobars/cmd"
 	"log"
 	"math/big"
@@ -58,6 +59,8 @@ type WatchConfig struct {
 	RateConfig *RateConfig
 	limiter    *Limiter
 	Jitter     time.Duration
+	MaxTime    time.Duration
+	MaxTimeEnv string
 }
 
 type WatchOption func(*WatchConfig)
@@ -93,7 +96,23 @@ const (
 	BiteForMaxMem                 // 超过最大内存咬人
 	BiteForMaxPmem                // 超过最大内存占比咬人
 	BiteForMaxPcpu                // 超过最大CPU占比咬人
+	BiteForMaxTime                // 超过最大运行时长咬人
 )
+
+func (b BiteFor) String() string {
+	switch b {
+	case BiteForMaxMem:
+		return "内存超了"
+	case BiteForMaxPmem:
+		return "内存占比超了"
+	case BiteForMaxPcpu:
+		return "CPU占比超了"
+	case BiteForMaxTime:
+		return "运行时长超了"
+	}
+
+	return "啥都没超"
+}
 
 func (d *Dog) watch() {
 	c := d.Config
@@ -112,7 +131,7 @@ func (d *Dog) watch() {
 		if c.Pid > 0 && item.Pid != c.Pid || c.Ppid > 0 && item.Ppid != c.Ppid || c.Self && c.Pid != pid {
 			continue
 		}
-		if !c.Self && c.Pid == pid { // 不看自己，跳过自己
+		if !c.Self && item.Pid == pid { // 不看自己，跳过自己
 			continue
 		}
 
@@ -124,11 +143,27 @@ func (d *Dog) watch() {
 			biteFor = BiteForMaxPmem
 		case c.MaxPcpu > 0 && item.Pcpu > c.MaxPcpu:
 			biteFor = BiteForMaxPcpu
+		case c.MaxTime > 0 && exceedMaxTime(item, `yyyy-MM-dd HH:mm:ss`, c.MaxTime, c.MaxTimeEnv):
+			biteFor = BiteForMaxTime
 		}
 		if biteFor != BiteForNone {
 			d.bite(biteFor, item)
 		}
 	}
+}
+
+func exceedMaxTime(item PsAuxItem, layout string, maxTime time.Duration, env string) bool {
+	t, err := time.ParseInLocation(timex.ConvertFormat(layout), item.Start, time.Local)
+	if err != nil {
+		log.Printf("E! failed to parse start time: %v", err)
+		return false
+	}
+
+	if time.Since(t) < maxTime {
+		return false
+	}
+
+	return env == "" || strings.Contains(itemEnv(item), env)
 }
 
 // Ctrl+C - SIGINT
@@ -146,11 +181,11 @@ var signalMap = map[string]syscall.Signal{
 func (d *Dog) bite(biteFor BiteFor, item PsAuxItem) {
 	c := d.Config
 	if c.limiter != nil && c.limiter.Allow() {
-		log.Printf("Dog barking for %v, config:%s, item %+v", biteFor, c.RateConfig, item)
+		log.Printf("Dog barking for %s, config:%s, item %+v", biteFor, c.RateConfig, item)
 		return
 	}
 
-	log.Printf("Dog biting for %v, item %+v", biteFor, item)
+	log.Printf("Dog biting for %s, item %+v", biteFor, item)
 	for _, v := range c.LogItems {
 		if f, ok := logItemsRegister[v]; ok {
 			if m := f(item); m != "" {
@@ -209,17 +244,21 @@ func createWatchConfig(options []WatchOption) *WatchConfig {
 	return c
 }
 
+func itemCwd(item PsAuxItem) (l string) {
+	script := fmt.Sprintf(`lsof -p %d | grep cwd | awk '{print $9}'`, item.Pid)
+	cmd.BashLiner(script, func(line string) bool { l = line; return false })
+	return
+}
+
+func itemEnv(item PsAuxItem) (l string) {
+	script := fmt.Sprintf(`ps e -ww -p %d | tail -1`, item.Pid)
+	cmd.BashLiner(script, func(line string) bool { l = line; return false })
+	return
+}
+
 var logItemsRegister = map[string]func(PsAuxItem) string{
-	"CWD": func(item PsAuxItem) (l string) {
-		script := fmt.Sprintf(`lsof -p %d | grep cwd | awk '{print $9}'`, item.Pid)
-		cmd.BashLiner(script, func(line string) bool { l = line; return false })
-		return
-	},
-	"ENV": func(item PsAuxItem) (l string) {
-		script := fmt.Sprintf(`ps e -ww -p %d | tail -1`, item.Pid)
-		cmd.BashLiner(script, func(line string) bool { l = line; return false })
-		return
-	},
+	"CWD": itemCwd,
+	"ENV": itemEnv,
 }
 
 type RateConfig struct {
