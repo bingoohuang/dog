@@ -17,13 +17,13 @@ import (
 // https://github.com/vikyd/go-cpu-load
 func main() {
 	var cores int
-	var percentage int
+	var p int
 	var duration time.Duration
 	var memory string
 
 	numCPU := runtime.NumCPU()
 	flag.IntVar(&cores, "c", numCPU, "")
-	flag.IntVar(&percentage, "p", 100, "")
+	flag.IntVar(&p, "p", 100, "")
 	flag.StringVar(&memory, "m", "", "")
 	flag.DurationVar(&duration, "d", 0, "")
 	flag.Usage = func() {
@@ -39,8 +39,8 @@ func main() {
 	if cores < 1 || cores > numCPU {
 		log.Fatalf("cores %d is not between 1 - %d", cores, numCPU)
 	}
-	if percentage > 100 {
-		log.Fatalf("percentage %d is invalid, should be between 0 and 100", percentage)
+	if p > 100 {
+		log.Fatalf("percentage %d is invalid, should be between 0 and 100", p)
 	}
 
 	log.Printf("busy starting, pid %d", os.Getpid())
@@ -49,18 +49,24 @@ func main() {
 	// syscall.SIGINT: ctl + c, syscall.SIGTERM: kill pid
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGUSR1, syscall.SIGUSR2)
 	go func() {
-		s := <-sig
-		log.Printf("received signal %s, exiting", s)
-		os.Exit(-1)
+		for {
+			s := <-sig
+			log.Printf("received signal %s", s)
+			switch s {
+			case syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
+				log.Printf("exiting")
+				os.Exit(0)
+			}
+		}
 	}()
 
 	if memory != "" {
 		go controlMem(memory)
 	}
 
-	if percentage > 0 {
-		log.Printf(" run %d%% of %d/%d CPU cores %s.", percentage, cores, numCPU, printDuration(duration))
-		RunCPULoad(cores, duration, percentage)
+	if p > 0 {
+		log.Printf("run %d%% of %d/%d CPU cores %s.", p, cores, numCPU, printDuration(duration))
+		RunCPULoad(cores, duration, p)
 	} else {
 		select {}
 	}
