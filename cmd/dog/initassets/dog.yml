@@ -2,11 +2,15 @@
 
 # 命令包含，以!开头为不包含，可以多个值
 filter: [ ]
-#  发送信号，eg INT TERM KILL QUIT USR1 USR2 (default "INT")
+# 发送条件，默认触发1次就发信号，eg. 3/30s，在30s内发生3次，则触发
+cond: "2/30s"
+#  发送信号，eg. INT,TERM,KILL,QUIT,USR1,USR2 (默认 INT)
 kill: "INT,KILL"
+# 记录日志信息，多个逗号分隔，eg. ENV,CWD
+log: "ENV,CWD"
 # 允许最大内存 (默认 0B，不检查内存)
 maxmem: 0
-# 允许内存最大百分比, eg 0-1200 (默认 300), 0 不检查 CPU
+# 允许内存最大百分比, eg 0-1200 (默认 300), 0 不查 CPU
 maxpcpu: 300
 # 允许CPU最大百分比, eg 1-100 (默认 50)
 maxpmem: 50
@@ -18,5 +22,7 @@ ppid: 0
 self: false
 # 检查时间间隔 (默认 10s)
 span: 10s
+# 最大抖动 (默认 1s)
+jitter: 1s
 # 只取前N个检查
 topn: 0

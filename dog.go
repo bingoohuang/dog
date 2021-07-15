@@ -1,8 +1,13 @@
 package dog
 
 import (
+	"crypto/rand"
+	"errors"
+	"fmt"
 	"github.com/bingoohuang/gg/pkg/ss"
+	"github.com/gobars/cmd"
 	"log"
+	"math/big"
 	"os"
 	"strings"
 	"syscall"
@@ -15,16 +20,16 @@ type Dog struct {
 	stop   chan interface{}
 }
 
-func WithConfig(v WatchConfig) WatchOption  { return func(c *WatchConfig) { *c = v } }
-func WithTopn(v int) WatchOption            { return func(c *WatchConfig) { c.Topn = v } }
-func WithPid(v int) WatchOption             { return func(c *WatchConfig) { c.Pid = v } }
-func WithPpid(v int) WatchOption            { return func(c *WatchConfig) { c.Ppid = v } }
-func WithWatchSelf(v bool) WatchOption      { return func(c *WatchConfig) { c.Self = v } }
-func WithBitSignals(v string) WatchOption   { return func(c *WatchConfig) { c.BitSignals = v } }
-func WithMaxMem(v uint64) WatchOption       { return func(c *WatchConfig) { c.MaxMem = v } }
-func WithMaxPmem(v float32) WatchOption     { return func(c *WatchConfig) { c.MaxPmem = v } }
-func WithMaxPcpu(v float32) WatchOption     { return func(c *WatchConfig) { c.MaxPcpu = v } }
-func WithCmdFilter(v ...string) WatchOption { return func(c *WatchConfig) { c.CmdFilter = v } }
+func WithConfig(v WatchConfig) WatchOption   { return func(c *WatchConfig) { *c = v } }
+func WithTopn(v int) WatchOption             { return func(c *WatchConfig) { c.Topn = v } }
+func WithPid(v int) WatchOption              { return func(c *WatchConfig) { c.Pid = v } }
+func WithPpid(v int) WatchOption             { return func(c *WatchConfig) { c.Ppid = v } }
+func WithWatchSelf(v bool) WatchOption       { return func(c *WatchConfig) { c.Self = v } }
+func WithKillSignals(v []string) WatchOption { return func(c *WatchConfig) { c.KillSignals = v } }
+func WithMaxMem(v uint64) WatchOption        { return func(c *WatchConfig) { c.MaxMem = v } }
+func WithMaxPmem(v float32) WatchOption      { return func(c *WatchConfig) { c.MaxPmem = v } }
+func WithMaxPcpu(v float32) WatchOption      { return func(c *WatchConfig) { c.MaxPcpu = v } }
+func WithCmdFilter(v ...string) WatchOption  { return func(c *WatchConfig) { c.CmdFilter = v } }
 
 func NewDog(options ...WatchOption) *Dog {
 	c := createWatchConfig(options)
@@ -38,17 +43,21 @@ type BiteListener interface {
 }
 
 type WatchConfig struct {
-	Topn       int
-	Pid        int
-	Ppid       int
-	Self       bool
-	BitSignals string
+	Topn        int
+	Pid         int
+	Ppid        int
+	Self        bool
+	KillSignals []string
 
-	Interval  time.Duration
-	MaxMem    uint64  // 看住最大内存使用
-	MaxPmem   float32 // 看住最大内存占用比例
-	MaxPcpu   float32 // 看住最大CPU占用比例
-	CmdFilter []string
+	Interval   time.Duration
+	MaxMem     uint64  // 看住最大内存使用
+	MaxPmem    float32 // 看住最大内存占用比例
+	MaxPcpu    float32 // 看住最大CPU占用比例
+	CmdFilter  []string
+	LogItems   []string
+	RateConfig *RateConfig
+	limiter    *Limiter
+	Jitter     time.Duration
 }
 
 type WatchOption func(*WatchConfig)
@@ -65,6 +74,8 @@ func (d *Dog) StartWatch() {
 	d.watch()
 
 	for {
+		RandomSleep(d.Config.Jitter)
+
 		select {
 		case <-d.stop:
 			return
@@ -133,10 +144,23 @@ var signalMap = map[string]syscall.Signal{
 }
 
 func (d *Dog) bite(biteFor BiteFor, item PsAuxItem) {
-	log.Printf("Dog biting for %v, item %+v", biteFor, item)
+	c := d.Config
+	if c.limiter != nil && c.limiter.Allow() {
+		log.Printf("Dog barking for %v, config:%s, item %+v", biteFor, c.RateConfig, item)
+		return
+	}
 
-	for k, v := range signalMap {
-		if ss.ContainsFold(d.Config.BitSignals, k) {
+	log.Printf("Dog biting for %v, item %+v", biteFor, item)
+	for _, v := range c.LogItems {
+		if f, ok := logItemsRegister[v]; ok {
+			if m := f(item); m != "" {
+				log.Printf("LogItem: %s, Value: %s", v, m)
+			}
+		}
+	}
+
+	for _, s := range c.KillSignals {
+		if v, ok := signalMap[s]; ok {
 			if err := syscall.Kill(item.Pid, v); err != nil {
 				log.Printf("E! Kill %s to %d, err: %v", v, item.Pid, err)
 			} else {
@@ -163,9 +187,89 @@ func (d *Dog) Filter(item PsAuxItem) bool {
 }
 
 func createWatchConfig(options []WatchOption) *WatchConfig {
-	c := &WatchConfig{Interval: 10 * time.Second, BitSignals: "INT"}
+	c := &WatchConfig{}
 	for _, option := range options {
 		option(c)
 	}
+	if c.Interval == 0 {
+		c.Interval = 10 * time.Second
+	}
+	if len(c.KillSignals) == 0 {
+		c.KillSignals = []string{"INT"}
+	}
+
+	if c.RateConfig != nil {
+		c.limiter, _ = NewLimiter(c.RateConfig.Duration, c.RateConfig.Times, func() (Window, StopFunc) {
+			// NewLocalWindow returns an empty stop function, so it's
+			// unnecessary to call it later.
+			return NewLocalWindow()
+		})
+	}
+
 	return c
+}
+
+var logItemsRegister = map[string]func(PsAuxItem) string{
+	"CWD": func(item PsAuxItem) (l string) {
+		script := fmt.Sprintf(`lsof -p %d | grep cwd | awk '{print $9}'`, item.Pid)
+		cmd.BashLiner(script, func(line string) bool { l = line; return false })
+		return
+	},
+	"ENV": func(item PsAuxItem) (l string) {
+		script := fmt.Sprintf(`ps e -ww -p %d | tail -1`, item.Pid)
+		cmd.BashLiner(script, func(line string) bool { l = line; return false })
+		return
+	},
+}
+
+type RateConfig struct {
+	Times    int64
+	Duration time.Duration
+}
+
+func (r RateConfig) String() string { return fmt.Sprintf("%d/%s", r.Times, r.Duration) }
+
+var ErrBadRateConfig = errors.New("bad format for rate config, eg 10/30s")
+
+func ParseRateConfig(expr string) (*RateConfig, error) {
+	if expr == "" {
+		return nil, nil
+	}
+
+	pos := strings.Index(expr, "/")
+	if pos < 0 {
+		return nil, ErrBadRateConfig
+	}
+
+	timesPart := expr[:pos]
+	times := ss.ParseInt64(timesPart)
+	if times <= 0 {
+		return nil, ErrBadRateConfig
+	}
+
+	durationPart := expr[pos+1:]
+	duration, err := time.ParseDuration(durationPart)
+	if err != nil {
+		return nil, ErrBadRateConfig
+	}
+
+	return &RateConfig{Times: times, Duration: duration}, nil
+}
+
+// RandomSleep will sleep for a random amount of time up to max.
+// If the shutdown channel is closed, it will return before it has finished
+// sleeping.
+func RandomSleep(max time.Duration) {
+	if max == 0 {
+		return
+	}
+
+	var sleepns int64
+	maxSleep := big.NewInt(max.Nanoseconds())
+	if j, err := rand.Int(rand.Reader, maxSleep); err == nil {
+		sleepns = j.Int64()
+	}
+
+	t := time.NewTimer(time.Nanosecond * time.Duration(sleepns))
+	<-t.C
 }

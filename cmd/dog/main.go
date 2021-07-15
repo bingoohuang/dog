@@ -6,26 +6,32 @@ import (
 	"github.com/bingoohuang/dog"
 	"github.com/bingoohuang/gg/pkg/ctl"
 	"github.com/bingoohuang/gg/pkg/flagparse"
+	"github.com/bingoohuang/gg/pkg/ss"
 	"github.com/bingoohuang/golog"
+	"log"
 	"runtime"
 	"time"
 )
 
-func (Config) VersionInfo() string { return "dog v1.0.0 2021-07-14 16:50:32" }
+func (Config) VersionInfo() string { return "dog v1.1.0 2021-07-15 09:31:43" }
 
 func (c Config) Usage() string {
 	return fmt.Sprintf(`Usage of dog:
   -filter value 命令包含，以!开头为不包含，可以多个值
-  -kill string 发送信号，eg INT TERM KILL QUIT USR1 USR2 (default "INT")
+  -cond string 发送条件，默认触发1次就发信号，eg.3/30s，在30s内发生3次，则触发 
+  -kill string 发送信号，多个逗号分隔，eg. INT,TERM,KILL,QUIT,USR1,USR2 (默认 INT)
+  -log  string 记录日志信息，多个逗号分隔，eg. ENV,CWD
   -max-mem value 允许最大内存 (默认 0B，不检查内存)
-  -max-pcpu int 允许内存最大百分比, eg 1-%d (默认 %d), 0 不检查 CPU
-  -max-pmem int 允许CPU最大百分比, eg 1-100 (默认 50)
+  -max-pcpu int 允许内存最大百分比, eg. 1-%d (默认 %d), 0 不查 CPU
+  -max-pmem int 允许CPU最大百分比, eg. 1-100 (默认 50)
   -pid int 指定pid
   -ppid int 指定ppid
   -self 是否监控自身
   -span duration 检查时间间隔 (默认 10s)
+  -jitter duration 最大抖动 (默认 1s)
   -topn int 只取前N个检查
-  -v Print version info and exit\n`, runtime.NumCPU()*100, runtime.NumCPU()*50)
+  -v Print version info and exit`,
+		runtime.NumCPU()*100, runtime.NumCPU()*50)
 }
 
 type Config struct {
@@ -36,8 +42,11 @@ type Config struct {
 	Pid     int
 	Ppid    int
 	Self    bool
-	Kill    string        `val:"INT"`
+	Kill    string `val:"INT"`
+	Log     string
+	Cond    string
 	Span    time.Duration `val:"10s"`
+	Jitter  time.Duration `val:"1s"`
 	MaxMem  uint64        `size:"true"`
 	MaxPmem int           `val:"50"`
 	MaxPcpu int
@@ -59,19 +68,28 @@ func main() {
 	c := &Config{}
 	flagparse.Parse(c, flagparse.AutoLoadYaml("c", "dog.yml"))
 	ctl.Config{Initing: c.Init, InitFiles: initAssets}.ProcessInit()
+
+	rateConfig, err := dog.ParseRateConfig(c.Cond)
+	if err != nil {
+		log.Fatalf("ParseRateConfig error: %v", err)
+	}
+
 	golog.SetupLogrus()
 
 	watchConfig := dog.WatchConfig{
-		Topn:       c.Topn,
-		Pid:        c.Pid,
-		Ppid:       c.Ppid,
-		Self:       c.Self,
-		BitSignals: c.Kill,
-		Interval:   c.Span,
-		MaxMem:     c.MaxMem,
-		MaxPmem:    float32(c.MaxPmem),
-		MaxPcpu:    float32(c.MaxPcpu),
-		CmdFilter:  c.Filter,
+		Topn:        c.Topn,
+		Pid:         c.Pid,
+		Ppid:        c.Ppid,
+		Self:        c.Self,
+		KillSignals: ss.Split(c.Kill, ss.WithUpper(), ss.WithIgnoreEmpty(), ss.WithTrimSpace()),
+		LogItems:    ss.Split(c.Log, ss.WithUpper(), ss.WithIgnoreEmpty(), ss.WithTrimSpace()),
+		Interval:    c.Span,
+		Jitter:      c.Jitter,
+		MaxMem:      c.MaxMem,
+		MaxPmem:     float32(c.MaxPmem),
+		MaxPcpu:     float32(c.MaxPcpu),
+		CmdFilter:   c.Filter,
+		RateConfig:  rateConfig,
 	}
 
 	d := dog.NewDog(dog.WithConfig(watchConfig))
