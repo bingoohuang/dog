@@ -27,11 +27,11 @@ func main() {
 	flag.StringVar(&memory, "m", "", "")
 	flag.DurationVar(&duration, "d", 0, "")
 	flag.Usage = func() {
-		fmt.Printf(`Usage of busy:
+		fmt.Printf(`Usage of busy (v1.0.0 2021-07-15):
   -c int 使用核数，默认 %d
   -d duration 跑多久，默认一直跑
-  -m string 总内存,增量, eg. 1) 10M 直接达到10M 2) 10M,1K/10s 总用量10M,每10秒增加1K
-  -p int 每核CPU百分比 (默认 100)
+  -m string 总内存耗用，默认不开启, eg. 1) 10M 直达10M 2) 10M,1K/10s 总10M,每10秒加1K
+  -p int 每核CPU百分比 (默认 100), 0 时不开启 CPU 耗用
 `, runtime.NumCPU())
 	}
 	flag.Parse()
@@ -66,7 +66,18 @@ func main() {
 
 	if p > 0 {
 		log.Printf("run %d%% of %d/%d CPU cores %s.", p, cores, numCPU, printDuration(duration))
-		RunCPULoad(cores, duration, p)
+		go RunCPULoad(cores, p)
+	}
+
+	if memory == "" && p == 0 {
+		log.Printf("not busy for memory or cpu, please adjust arguments")
+		return
+	}
+
+	// how long
+	if duration > 0 {
+		time.Sleep(duration)
+		log.Printf("already runned %s exiting", duration)
 	} else {
 		select {}
 	}
@@ -132,7 +143,7 @@ func printDuration(d time.Duration) string {
 }
 
 // RunCPULoad run CPU load in specify cores count and percentage
-func RunCPULoad(coresCount int, timeSeconds time.Duration, percentage int) {
+func RunCPULoad(coresCount int, percentage int) {
 	runtime.GOMAXPROCS(coresCount)
 
 	// second     ,s  * 1
@@ -163,12 +174,7 @@ func RunCPULoad(coresCount int, timeSeconds time.Duration, percentage int) {
 			}
 		}()
 	}
-	// how long
-	if timeSeconds > 0 {
-		time.Sleep(timeSeconds)
-	} else {
-		select {}
-	}
+
 }
 
 func xxx() {
