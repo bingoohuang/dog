@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func (Config) VersionInfo() string { return "dog v1.2.1 2021-07-15 12:41:32" }
+func (Config) VersionInfo() string { return "dog v1.2.2 2021-07-19 12:16:27" }
 
 func (c Config) Usage() string {
 	return fmt.Sprintf(`Usage of dog:
@@ -51,7 +51,7 @@ type Config struct {
 	Jitter     time.Duration `val:"1s"`
 	MaxTime    time.Duration
 	MaxTimeEnv string
-	MaxMem     uint64 `size:"true"`
+	MaxMem     uint64 `size:"true" yaml:",label=size"`
 	MaxPmem    int    `val:"50"`
 	MaxPcpu    int
 	Filter     []string

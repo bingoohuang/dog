@@ -13,7 +13,7 @@ maxtime: 0
 # 允许最大启动时长包含的环境变量
 maxtimeenv: SHORT_TASK_FOR_DOG
 # 允许最大内存 (默认 0B，不检查内存)
-maxmem: 0
+maxmem: "8GiB"
 # 允许内存最大百分比, eg 0-1200 (默认 300), 0 不查 CPU
 maxpcpu: 300
 # 允许CPU最大百分比, eg 1-100 (默认 50)
