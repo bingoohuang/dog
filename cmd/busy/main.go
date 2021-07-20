@@ -127,7 +127,9 @@ func controlMem(memory string) {
 var mem []byte
 
 func findItem(pid int) *dog.PsAuxItem {
-	items, _ := dog.PsAuxTop(0, 0)
+	items, _ := dog.PsAuxTop(0, 0, func(topN int, heading bool) string {
+		return dog.PasAuxPid(topN, pid, heading)
+	})
 	for _, item := range items {
 		if item.Pid == pid {
 			return &item

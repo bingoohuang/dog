@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func (Config) VersionInfo() string { return "dog v1.2.2 2021-07-19 12:16:27" }
+func (Config) VersionInfo() string { return "dog v1.3.0 2021-07-20 19:24:29" }
 
 func (c Config) Usage() string {
 	return fmt.Sprintf(`Usage of dog:
@@ -26,6 +26,8 @@ func (c Config) Usage() string {
   -max-mem value 允许最大内存 (默认 0B，不检查内存)
   -max-pcpu int 允许内存最大百分比, eg. 1-%d (默认 %d), 0 不查 CPU
   -max-pmem int 允许CPU最大百分比, eg. 1-100 (默认 50)
+  -min-free-memory 允许最小总可用内存 (默认 0B，不检查此项)
+  -whites value 总最小内存触发时，驱逐进程命令行包含白名单，可以多个值
   -pid int 指定pid
   -ppid int 指定ppid
   -self 是否监控自身
@@ -55,6 +57,10 @@ type Config struct {
 	MaxPmem    int    `val:"50"`
 	MaxPcpu    int
 	Filter     []string
+	// 最小整个机器可用内存阈值
+	MinFreeMemory uint64 `size:"true" yaml:",label=size"`
+	// 驱逐白名单
+	Whites []string
 
 	Version    bool `flag:"v" usage:"Print version info and exit"`
 	rateConfig *dog.RateConfig
@@ -81,21 +87,23 @@ func main() {
 	golog.SetupLogrus()
 
 	watchConfig := dog.WatchConfig{
-		Topn:        c.Topn,
-		Pid:         c.Pid,
-		Ppid:        c.Ppid,
-		Self:        c.Self,
-		KillSignals: ss.Split(c.Kill, ss.WithUpper(), ss.WithIgnoreEmpty(), ss.WithTrimSpace()),
-		LogItems:    ss.Split(c.Log, ss.WithUpper(), ss.WithIgnoreEmpty(), ss.WithTrimSpace()),
-		Interval:    c.Span,
-		Jitter:      c.Jitter,
-		MaxTime:     c.MaxTime,
-		MaxTimeEnv:  c.MaxTimeEnv,
-		MaxMem:      c.MaxMem,
-		MaxPmem:     float32(c.MaxPmem),
-		MaxPcpu:     float32(c.MaxPcpu),
-		CmdFilter:   c.Filter,
-		RateConfig:  c.rateConfig,
+		Topn:          c.Topn,
+		Pid:           c.Pid,
+		Ppid:          c.Ppid,
+		Self:          c.Self,
+		KillSignals:   ss.Split(c.Kill, ss.WithUpper(), ss.WithIgnoreEmpty(), ss.WithTrimSpace()),
+		LogItems:      ss.Split(c.Log, ss.WithUpper(), ss.WithIgnoreEmpty(), ss.WithTrimSpace()),
+		Interval:      c.Span,
+		Jitter:        c.Jitter,
+		MaxTime:       c.MaxTime,
+		MaxTimeEnv:    c.MaxTimeEnv,
+		MaxMem:        c.MaxMem,
+		MaxPmem:       float32(c.MaxPmem),
+		MaxPcpu:       float32(c.MaxPcpu),
+		CmdFilter:     c.Filter,
+		MinFreeMemory: c.MinFreeMemory,
+		Whites:        c.Whites,
+		RateConfig:    c.rateConfig,
 	}
 
 	d := dog.NewDog(dog.WithConfig(watchConfig))

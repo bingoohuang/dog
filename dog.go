@@ -4,9 +4,11 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"github.com/bingoohuang/gg/pkg/man"
 	"github.com/bingoohuang/gg/pkg/ss"
 	"github.com/bingoohuang/gg/pkg/timex"
 	"github.com/gobars/cmd"
+	"github.com/shirou/gopsutil/mem"
 	"log"
 	"math/big"
 	"os"
@@ -50,17 +52,19 @@ type WatchConfig struct {
 	Self        bool
 	KillSignals []string
 
-	Interval   time.Duration
-	MaxMem     uint64  // 看住最大内存使用
-	MaxPmem    float32 // 看住最大内存占用比例
-	MaxPcpu    float32 // 看住最大CPU占用比例
-	CmdFilter  []string
-	LogItems   []string
-	RateConfig *RateConfig
-	limiter    *Limiter
-	Jitter     time.Duration
-	MaxTime    time.Duration
-	MaxTimeEnv string
+	Interval      time.Duration
+	MaxMem        uint64  // 看住最大内存使用
+	MaxPmem       float32 // 看住最大内存占用比例
+	MaxPcpu       float32 // 看住最大CPU占用比例
+	CmdFilter     []string
+	MinFreeMemory uint64
+	Whites        []string
+	LogItems      []string
+	RateConfig    *RateConfig
+	limiter       *Limiter
+	Jitter        time.Duration
+	MaxTime       time.Duration
+	MaxTimeEnv    string
 }
 
 type WatchOption func(*WatchConfig)
@@ -97,6 +101,7 @@ const (
 	BiteForMaxPmem                // 超过最大内存占比咬人
 	BiteForMaxPcpu                // 超过最大CPU占比咬人
 	BiteForMaxTime                // 超过最大运行时长咬人
+	BiteForTopMem                 // 驱逐内存占用第一进程
 )
 
 func (b BiteFor) String() string {
@@ -109,6 +114,8 @@ func (b BiteFor) String() string {
 		return "CPU占比超了"
 	case BiteForMaxTime:
 		return "运行时长超了"
+	case BiteForTopMem:
+		return "内存占用第一"
 	}
 
 	return "啥都没超"
@@ -118,36 +125,46 @@ var pid = os.Getpid()
 
 func (d *Dog) watch() {
 	c := d.Config
-	items, err := PsAuxTop(c.Topn, 0)
+
+	if c.MinFreeMemory > 0 {
+		vmStat, err := mem.VirtualMemory()
+		if err != nil {
+			log.Printf("get VirtualMemory error: %v", err)
+		} else if vmStat.Free < c.MinFreeMemory {
+			d.biteTopMem(vmStat)
+		}
+	}
+
+	items, err := PsAuxTop(c.Topn, 0, PasAuxShell)
 	if err != nil {
 		log.Printf("ps aux error: %v", err)
 		return
 	}
 
-	for _, item := range items {
-		if d.Filter(item) {
+	for _, v := range items {
+		if d.Filter(v) {
 			continue
 		}
-		if c.Pid > 0 && item.Pid != c.Pid || c.Ppid > 0 && item.Ppid != c.Ppid || c.Self && c.Pid != pid {
+		if c.Pid > 0 && v.Pid != c.Pid || c.Ppid > 0 && v.Ppid != c.Ppid || c.Self && c.Pid != pid {
 			continue
 		}
-		if !c.Self && item.Pid == pid { // 不看自己，跳过自己
+		if !c.Self && v.Pid == pid { // 不看自己，跳过自己
 			continue
 		}
 
 		biteFor := BiteForNone
 		switch {
-		case c.MaxMem > 0 && item.Rss > c.MaxMem:
+		case c.MaxMem > 0 && v.Rss > c.MaxMem:
 			biteFor = BiteForMaxMem
-		case c.MaxPmem > 0 && item.Pmem > c.MaxPmem:
+		case c.MaxPmem > 0 && v.Pmem > c.MaxPmem:
 			biteFor = BiteForMaxPmem
-		case c.MaxPcpu > 0 && item.Pcpu > c.MaxPcpu:
+		case c.MaxPcpu > 0 && v.Pcpu > c.MaxPcpu:
 			biteFor = BiteForMaxPcpu
-		case c.MaxTime > 0 && exceedMaxTime(item, `yyyy-MM-dd HH:mm:ss`, c.MaxTime, c.MaxTimeEnv):
+		case c.MaxTime > 0 && exceedMaxTime(v, `yyyy-MM-dd HH:mm:ss`, c.MaxTime, c.MaxTimeEnv):
 			biteFor = BiteForMaxTime
 		}
 		if biteFor != BiteForNone {
-			d.bite(biteFor, item)
+			d.bite(biteFor, v)
 		}
 	}
 }
@@ -178,33 +195,72 @@ var signalMap = map[string]syscall.Signal{
 	"USR2": syscall.SIGUSR2,
 }
 
-func (d *Dog) bite(biteFor BiteFor, item PsAuxItem) {
+const TopMemFakePid = -100
+
+func (d *Dog) biteTopMem(vm *mem.VirtualMemoryStat) {
 	c := d.Config
-	if c.limiter != nil && c.limiter.Allow(item.Pid) {
-		log.Printf("Dog barking for %s, config:%s, item %+v", biteFor, c.RateConfig, item)
+	if c.limiter != nil && c.limiter.Allow(TopMemFakePid) {
+		log.Printf("Dog barking for low free memory: %s/%s < config min: %s",
+			man.Bytes(vm.Free), man.Bytes(vm.Total), man.Bytes(c.MinFreeMemory))
 		return
 	}
 
-	log.Printf("Dog biting for %s, item %+v", biteFor, item)
-	for _, v := range c.LogItems {
-		if f, ok := logItemsRegister[v]; ok {
-			if m := f(item); m != "" {
-				log.Printf("LogItem: %s, Value: %s", v, m)
+	log.Printf("Dog biting for low free memory: %s/%s < config min: %s",
+		man.Bytes(vm.Free), man.Bytes(vm.Total), man.Bytes(c.MinFreeMemory))
+
+	items, err := PsAuxTop(10, 0, PasMemAuxShell)
+	if err != nil {
+		log.Printf("ps aux error: %v", err)
+		return
+	}
+
+	for _, v := range items {
+		if !d.Whites(v) {
+			d.bite(BiteForTopMem, v)
+			return
+		}
+	}
+
+	log.Printf("Dog no biting found for low free memory: %s/%s < config min: %s",
+		man.Bytes(vm.Free), man.Bytes(vm.Total), man.Bytes(c.MinFreeMemory))
+}
+
+func (d *Dog) bite(biteFor BiteFor, v PsAuxItem) {
+	c := d.Config
+	if c.limiter != nil && c.limiter.Allow(v.Pid) {
+		log.Printf("Dog barking for %s, config:%s, item %+v", biteFor, c.RateConfig, v)
+		return
+	}
+
+	log.Printf("Dog biting for %s, item %+v", biteFor, v)
+	for _, l := range c.LogItems {
+		if f, ok := logItemsRegister[l]; ok {
+			if m := f(v); m != "" {
+				log.Printf("LogItem: %s, Value: %s", l, m)
 			}
 		}
 	}
 
 	for _, s := range c.KillSignals {
-		if v, ok := signalMap[s]; ok {
-			if err := syscall.Kill(item.Pid, v); err != nil {
-				log.Printf("E! Kill %s to %d, err: %v", v, item.Pid, err)
+		if g, ok := signalMap[s]; ok {
+			if err := syscall.Kill(v.Pid, g); err != nil {
+				log.Printf("E! Kill %s to %d, err: %v", g, v.Pid, err)
 			} else {
-				log.Printf("Kill %s to %d succeeded", v, item.Pid)
+				log.Printf("Kill %s to %d succeeded", g, v.Pid)
 			}
 		}
 	}
 }
 
+func (d *Dog) Whites(item PsAuxItem) bool {
+	for _, cf := range d.Config.Whites {
+		if ss.ContainsFold(item.Command, cf) {
+			return true // 过滤
+		}
+	}
+
+	return false
+}
 func (d *Dog) Filter(item PsAuxItem) bool {
 	for _, cf := range d.Config.CmdFilter {
 		if strings.HasPrefix(cf, "!") {

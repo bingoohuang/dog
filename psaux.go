@@ -37,11 +37,11 @@ func (p PsAuxItem) String() string {
 }
 
 // PsAuxTop ...
-func PsAuxTop(n, printN int) ([]PsAuxItem, error) {
+func PsAuxTop(n, printN int, psFn func(topN int, heading bool) string) ([]PsAuxItem, error) {
 	auxItems := make([]PsAuxItem, 0)
 	re := regexp.MustCompile(`\s+`)
 	i := 0
-	_, status := cmd.BashLiner(PasAuxShell(n, false), func(line string) bool {
+	_, status := cmd.BashLiner(psFn(n, false), func(line string) bool {
 		f := re.Split(line, 13)
 		item := PsAuxItem{
 			User:    f[2],
@@ -70,9 +70,21 @@ func PsAuxTop(n, printN int) ([]PsAuxItem, error) {
 	return auxItems, status.Error
 }
 
+// PasAuxPid ...
+func PasAuxPid(topN, pid int, heading bool) string {
+	return prefix + str.If(heading, "", noheading) + pidPostfix + fmt.Sprintf("%d", pid) + psAuxTopOpt(topN) + fixedLtime
+}
+
+const pidPostfix = ` -p `
+
 // PasAuxShell ...
 func PasAuxShell(topN int, heading bool) string {
 	return prefix + str.If(heading, "", noheading) + psAuxTopOpt(topN) + fixedLtime
+}
+
+// PasMemAuxShell ...
+func PasMemAuxShell(topN int, heading bool) string {
+	return memPrefix + str.If(heading, "", noheading) + psAuxMemTopOpt(topN) + fixedLtime
 }
 
 /*

@@ -5,8 +5,10 @@ import (
 	"strconv"
 )
 
-func psAuxTopOpt(n int) string { return ss.If(n > 0, `|head -n `+strconv.Itoa(n), ``) }
+func psAuxMemTopOpt(n int) string { return ss.If(n > 0, `|head -n `+strconv.Itoa(n), ``) }
+func psAuxTopOpt(n int) string    { return ss.If(n > 0, `|head -n `+strconv.Itoa(n), ``) }
 
+const memPrefix = `(export TZ=UTC0 LC_ALL=C; ps axo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tt,stat,time,args -m`
 const prefix = `(export TZ=UTC0 LC_ALL=C; ps axo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tt,stat,time,args`
 const noheading = `|tail -n +2`
 

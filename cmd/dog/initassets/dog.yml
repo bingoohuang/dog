@@ -18,6 +18,10 @@ maxmem: "8GiB"
 maxpcpu: 300
 # 允许CPU最大百分比, eg 1-100 (默认 50)
 maxpmem: 50
+# 允许最小总可用内存 (默认 0B，不检查此项)
+minfreememory: "1GiB"
+# 总最小内存触发时，驱逐进程命令行包含白名单，可以多个值
+whites: []
 # 指定pid
 pid: 0
 # 指定ppid

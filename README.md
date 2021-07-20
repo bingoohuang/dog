@@ -4,8 +4,8 @@ watchdog for RSS/CPU
 
 ## 编译
 
-- `go install -trimpath -ldflags='-extldflags=-static -s -w' ./...`
-- `GOOS=linux GOARCH=amd64 go install -trimpath -ldflags='-extldflags=-static -s -w' ./...`
+- 本机编译：`go install -trimpath -ldflags='-s -w' ./...`
+- 交叉编译Linux：`GOOS=linux GOARCH=amd64 go install -trimpath -ldflags='-extldflags=-static -s -w' ./...`
 - `ldd /usr/local/bin/busy`
 
 ## 部署
