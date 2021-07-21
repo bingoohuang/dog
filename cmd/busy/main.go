@@ -21,11 +21,14 @@ func main() {
 	var lockOsThread bool
 	var duration time.Duration
 	var memory string
+	version := false
 
 	numCPU := runtime.NumCPU()
 	flag.IntVar(&cores, "c", numCPU, "")
 	flag.IntVar(&p, "p", 100, "")
 	flag.BoolVar(&lockOsThread, "l", false, "")
+
+	flag.BoolVar(&version, "v", false, "")
 	flag.StringVar(&memory, "m", "", "")
 	flag.DurationVar(&duration, "d", 0, "")
 	flag.Usage = func() {
@@ -35,9 +38,15 @@ func main() {
   -l          是否在 CPU 耗用时锁定 OS 线程
   -m string   总内存耗用，默认不开启, eg. 1) 10M 直达10M 2) 10M,1K/10s 总10M,每10秒加1K
   -d duration 跑多久，默认一直跑
+  -v          看下版本号
 `, runtime.NumCPU())
 	}
 	flag.Parse()
+
+	if version {
+		fmt.Printf("v1.0.0 2021-07-21 13:43:57")
+		os.Exit(0)
+	}
 
 	if cores < 1 || cores > numCPU {
 		log.Fatalf("cores %d is not between 1 - %d", cores, numCPU)
@@ -48,20 +57,7 @@ func main() {
 
 	log.Printf("busy starting, pid %d", os.Getpid())
 
-	sig := make(chan os.Signal, 1)
-	// syscall.SIGINT: ctl + c, syscall.SIGTERM: kill pid
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGUSR1, syscall.SIGUSR2)
-	go func() {
-		for {
-			s := <-sig
-			log.Printf("received signal %s", s)
-			switch s {
-			case syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
-				log.Printf("exiting")
-				os.Exit(0)
-			}
-		}
-	}()
+	setupSignals()
 
 	if memory != "" {
 		go controlMem(memory)
@@ -84,6 +80,23 @@ func main() {
 	} else {
 		select {}
 	}
+}
+
+func setupSignals() {
+	sig := make(chan os.Signal, 1)
+	// syscall.SIGINT: ctl + c, syscall.SIGTERM: kill pid
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGUSR1, syscall.SIGUSR2)
+	go func() {
+		for {
+			s := <-sig
+			log.Printf("received signal %s", s)
+			switch s {
+			case syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
+				log.Printf("exiting")
+				os.Exit(0)
+			}
+		}
+	}()
 }
 
 func controlMem(memory string) {
