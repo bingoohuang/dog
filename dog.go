@@ -52,19 +52,19 @@ type WatchConfig struct {
 	Self        bool
 	KillSignals []string
 
-	Interval      time.Duration
-	MaxMem        uint64  // 看住最大内存使用
-	MaxPmem       float32 // 看住最大内存占用比例
-	MaxPcpu       float32 // 看住最大CPU占用比例
-	CmdFilter     []string
-	MinFreeMemory uint64
-	Whites        []string
-	LogItems      []string
-	RateConfig    *RateConfig
-	limiter       *Limiter
-	Jitter        time.Duration
-	MaxTime       time.Duration
-	MaxTimeEnv    string
+	Interval           time.Duration
+	MaxMem             uint64  // 看住最大内存使用
+	MaxPmem            float32 // 看住最大内存占用比例
+	MaxPcpu            float32 // 看住最大CPU占用比例
+	CmdFilter          []string
+	MinAvailableMemory uint64
+	Whites             []string
+	LogItems           []string
+	RateConfig         *RateConfig
+	limiter            *Limiter
+	Jitter             time.Duration
+	MaxTime            time.Duration
+	MaxTimeEnv         string
 }
 
 type WatchOption func(*WatchConfig)
@@ -123,14 +123,45 @@ func (b BiteFor) String() string {
 
 var pid = os.Getpid()
 
+/*
+# linux free 命令下free/available区别
+
+先说明一些基本概念
+
+第一列
+
+- Mem 内存的使用信息
+- Swap 交换空间的使用信息
+
+第一行
+
+- total 系统总的可用物理内存大小
+- used 已被使用的物理内存大小
+- free 还有多少物理内存可用
+- shared 被共享使用的物理内存大小
+- buff/cache 被 buffer 和 cache 使用的物理内存大小
+- available 还可以被 应用程序 使用的物理内存大小
+
+其中有两个概念需要注意
+
+free 与 available 的区别
+- free 是真正尚未被使用的物理内存数量。
+- available 是应用程序认为可用内存数量，available = free + buffer + cache (注：只是大概的计算方法)
+
+Linux 为了提升读写性能，会消耗一部分内存资源缓存磁盘数据，对于内核来说，buffer 和 cache 其实都属于已经被使用的内存。
+但当应用程序申请内存时，如果 free 内存不够，内核就会回收 buffer 和 cache 的内存来满足应用程序的请求。这就是稍后要说明的 buffer 和 cache。
+
+作者：不做秃顶的程序猿
+链接：https://www.jianshu.com/p/2ffeb3a3aa90
+*/
 func (d *Dog) watch() {
 	c := d.Config
 
-	if c.MinFreeMemory > 0 {
+	if c.MinAvailableMemory > 0 {
 		vmStat, err := mem.VirtualMemory()
 		if err != nil {
 			log.Printf("get VirtualMemory error: %v", err)
-		} else if vmStat.Free < c.MinFreeMemory {
+		} else if vmStat.Available < c.MinAvailableMemory {
 			d.biteTopMem(vmStat)
 		}
 	}
@@ -200,13 +231,13 @@ const TopMemFakePid = -100
 func (d *Dog) biteTopMem(vm *mem.VirtualMemoryStat) {
 	c := d.Config
 	if c.limiter != nil && c.limiter.Allow(TopMemFakePid) {
-		log.Printf("Dog barking for low free memory: %s/%s < config min: %s",
-			man.Bytes(vm.Free), man.Bytes(vm.Total), man.Bytes(c.MinFreeMemory))
+		log.Printf("Dog barking for low Available memory: %s/%s < config min: %s",
+			man.Bytes(vm.Available), man.Bytes(vm.Total), man.Bytes(c.MinAvailableMemory))
 		return
 	}
 
-	log.Printf("Dog biting for low free memory: %s/%s < config min: %s",
-		man.Bytes(vm.Free), man.Bytes(vm.Total), man.Bytes(c.MinFreeMemory))
+	log.Printf("Dog biting for low Available memory: %s/%s < config min: %s",
+		man.Bytes(vm.Available), man.Bytes(vm.Total), man.Bytes(c.MinAvailableMemory))
 
 	items, err := PsAuxTop(10, 0, PasMemAuxShell)
 	if err != nil {
@@ -221,8 +252,8 @@ func (d *Dog) biteTopMem(vm *mem.VirtualMemoryStat) {
 		}
 	}
 
-	log.Printf("Dog no biting found for low free memory: %s/%s < config min: %s",
-		man.Bytes(vm.Free), man.Bytes(vm.Total), man.Bytes(c.MinFreeMemory))
+	log.Printf("Dog no biting found for low Available memory: %s/%s < config min: %s",
+		man.Bytes(vm.Available), man.Bytes(vm.Total), man.Bytes(c.MinAvailableMemory))
 }
 
 func (d *Dog) bite(biteFor BiteFor, v PsAuxItem) {
