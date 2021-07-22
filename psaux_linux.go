@@ -5,6 +5,7 @@ import (
 	"strconv"
 )
 
+// https://stackoverflow.com/questions/9229333/how-to-get-overall-cpu-usage-e-g-57-on-linux
 func cpuUsageCmd() string { return `top -bn1|grep -oP '(\S+) id,'|awk '{print 100-$1}'` }
 
 func psAuxMemTopOpt(n int) string { return ss.If(n > 0, ` --sort=-pmem|head -n `+strconv.Itoa(n), ``) }
