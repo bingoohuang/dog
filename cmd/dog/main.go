@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func (Config) VersionInfo() string { return "dog v1.3.3 2021-07-22 09:31:57" }
+func (Config) VersionInfo() string { return "dog v1.4.0 2021-07-22 11:15:38" }
 
 func (c Config) Usage() string {
 	return fmt.Sprintf(`Usage of dog:
@@ -27,7 +27,8 @@ func (c Config) Usage() string {
   -max-pcpu int 允许内存最大百分比, eg. 1-%d (默认 %d), 0 不查 CPU
   -max-pmem int 允许CPU最大百分比, eg. 1-100 (默认 50)
   -min-available-memory 允许最小总可用内存 (默认 0B，不检查此项)
-  -whites value 总最小内存触发时，驱逐进程命令行包含白名单，可以多个值
+  -max-host-cpu 允许最大机器CPU百分比（0-100） (默认 0，不检查此项)
+  -whites value 总最小内存/最大机器CPU百分比触发时，驱逐进程命令行包含白名单，可以多个值
   -pid int 指定pid
   -ppid int 指定ppid
   -self 是否监控自身
@@ -57,10 +58,10 @@ type Config struct {
 	MaxPmem    int    `val:"50"`
 	MaxPcpu    int
 	Filter     []string
-	// 最小整个机器可用内存阈值
-	MinAvailableMemory uint64 `size:"true" yaml:",label=size"`
-	// 驱逐白名单
-	Whites []string
+
+	MinAvailableMemory uint64 `size:"true" yaml:",label=size"` // 最小整个机器可用内存阈值
+	MaxHostCpu         int
+	Whites             []string // 驱逐白名单
 
 	Version    bool `flag:"v" usage:"Print version info and exit"`
 	rateConfig *dog.RateConfig
@@ -102,6 +103,7 @@ func main() {
 		MaxPcpu:            float32(c.MaxPcpu),
 		CmdFilter:          c.Filter,
 		MinAvailableMemory: c.MinAvailableMemory,
+		MaxHostPcpu:        float32(c.MaxHostCpu),
 		Whites:             c.Whites,
 		RateConfig:         c.rateConfig,
 	}

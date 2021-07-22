@@ -20,8 +20,10 @@ maxpcpu: 300
 maxpmem: 50
 # 允许最小总可用内存 (默认 0B，不检查此项)
 minavailablememory: "1GiB"
+# 允许最大机器CPU百分比（0-100） (默认 0，不检查此项)
+maxhostcpu: 90
 # 总最小内存触发时，驱逐进程命令行包含白名单，可以多个值
-whites: []
+whites: [ ]
 # 指定pid
 pid: 0
 # 指定ppid

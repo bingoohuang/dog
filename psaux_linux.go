@@ -5,16 +5,17 @@ import (
 	"strconv"
 )
 
-func psAuxMemTopOpt(n int) string {
-	return ss.If(n > 0, ` --sort=-pmem|head -n `+strconv.Itoa(n), ` --sort=-pid --forest`)
-}
+func cpuUsageCmd() string { return `top -bn1|grep -oP '(\S+) id,'|awk '{print 100-$1}'` }
 
+func psAuxMemTopOpt(n int) string { return ss.If(n > 0, ` --sort=-pmem|head -n `+strconv.Itoa(n), ``) }
+func psAuxCpuTopOpt(n int) string { return ss.If(n > 0, ` --sort=-pcpu|head -n `+strconv.Itoa(n), ``) }
 func psAuxTopOpt(n int) string {
-	return ss.If(n > 0, ` --sort=-pcpu|head -n `+strconv.Itoa(n), ` --sort=-pid --forest`)
+	return ss.If(n > 0, `|head -n `+strconv.Itoa(n), ` --sort=-pid --forest`)
 }
 
 const prefix = `ps axo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tname,stat,time,args`
 const memPrefix = prefix
+const cpuPrefix = prefix
 const noheading = ` --no-heading`
 
 // nolint

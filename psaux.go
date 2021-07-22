@@ -12,6 +12,17 @@ import (
 	"github.com/gobars/cmd"
 )
 
+// CpuPercent 得到当前系统的CPU百分比使用率，值在0-100之间
+func CpuPercent() (v float32) {
+	c := cpuUsageCmd()
+	_, _ = cmd.BashLiner(c, func(line string) bool {
+		v = ss.ParseFloat32(line)
+		return false
+	})
+
+	return
+}
+
 // PsAuxItem ...
 type PsAuxItem struct {
 	User    string
@@ -80,6 +91,11 @@ const pidPostfix = ` -p `
 // PasAuxShell ...
 func PasAuxShell(topN int, heading bool) string {
 	return prefix + str.If(heading, "", noheading) + psAuxTopOpt(topN) + fixedLtime
+}
+
+// PasCpuAuxShell ...
+func PasCpuAuxShell(topN int, heading bool) string {
+	return cpuPrefix + str.If(heading, "", noheading) + psAuxCpuTopOpt(topN) + fixedLtime
 }
 
 // PasMemAuxShell ...

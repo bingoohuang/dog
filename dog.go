@@ -58,6 +58,7 @@ type WatchConfig struct {
 	MaxPcpu            float32 // 看住最大CPU占用比例
 	CmdFilter          []string
 	MinAvailableMemory uint64
+	MaxHostPcpu        float32 // 看住最大CPU占比（0-100), 0时不看
 	Whites             []string
 	LogItems           []string
 	RateConfig         *RateConfig
@@ -102,6 +103,7 @@ const (
 	BiteForMaxPcpu                // 超过最大CPU占比咬人
 	BiteForMaxTime                // 超过最大运行时长咬人
 	BiteForTopMem                 // 驱逐内存占用第一进程
+	BiteForTopCpu                 // 驱逐CPU占用第一进程
 )
 
 func (b BiteFor) String() string {
@@ -116,6 +118,8 @@ func (b BiteFor) String() string {
 		return "运行时长超了"
 	case BiteForTopMem:
 		return "内存占用第一"
+	case BiteForTopCpu:
+		return "CPU占用第一"
 	}
 
 	return "啥都没超"
@@ -166,6 +170,12 @@ func (d *Dog) watch() {
 		}
 	}
 
+	if c.MaxHostPcpu > 0 {
+		if v := CpuPercent(); v > c.MaxHostPcpu {
+			d.biteTopCpu(v)
+		}
+	}
+
 	items, err := PsAuxTop(c.Topn, 0, PasAuxShell)
 	if err != nil {
 		log.Printf("ps aux error: %v", err)
@@ -173,7 +183,7 @@ func (d *Dog) watch() {
 	}
 
 	for _, v := range items {
-		if d.Filter(v) {
+		if d.Filter(v) || d.Whites(v) {
 			continue
 		}
 		if c.Pid > 0 && v.Pid != c.Pid || c.Ppid > 0 && v.Ppid != c.Ppid || c.Self && c.Pid != pid {
@@ -214,19 +224,38 @@ func exceedMaxTime(item PsAuxItem, layout string, maxTime time.Duration, env str
 	return env == "" || strings.Contains(itemEnv(item), env)
 }
 
-// Ctrl+C - SIGINT
-// Ctrl+\ - SIGQUIT
-// Ctrl+Z - SIGTSTP
+// Ctrl+C - SIGINT Ctrl+\ - SIGQUIT Ctrl+Z - SIGTSTP
 var signalMap = map[string]syscall.Signal{
-	"INT":  syscall.SIGINT,
-	"TERM": syscall.SIGTERM,
-	"QUIT": syscall.SIGQUIT,
-	"KILL": syscall.SIGKILL,
-	"USR1": syscall.SIGUSR1,
-	"USR2": syscall.SIGUSR2,
+	"INT": syscall.SIGINT, "TERM": syscall.SIGTERM, "QUIT": syscall.SIGQUIT, "KILL": syscall.SIGKILL,
+	"USR1": syscall.SIGUSR1, "USR2": syscall.SIGUSR2,
 }
 
 const TopMemFakePid = -100
+const TopCpuFakePid = -200
+
+func (d *Dog) biteTopCpu(cpuPercent float32) {
+	c := d.Config
+	if c.limiter != nil && c.limiter.Allow(TopCpuFakePid) {
+		log.Printf("Dog barking for cpu percent: %f > config max: %f", cpuPercent, c.MaxHostPcpu)
+		return
+	}
+	log.Printf("Dog biting for cpu percent: %f > config max: %f", cpuPercent, c.MaxHostPcpu)
+
+	items, err := PsAuxTop(10, 0, PasCpuAuxShell)
+	if err != nil {
+		log.Printf("ps aux error: %v", err)
+		return
+	}
+
+	for _, v := range items {
+		if !d.Whites(v) {
+			d.bite(BiteForTopCpu, v)
+			return
+		}
+	}
+
+	log.Printf("Dog no biting found for cpu percent: %f > config max: %f", cpuPercent, c.MaxHostPcpu)
+}
 
 func (d *Dog) biteTopMem(vm *mem.VirtualMemoryStat) {
 	c := d.Config

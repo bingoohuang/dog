@@ -5,10 +5,14 @@ import (
 	"strconv"
 )
 
+func cpuUsageCmd() string { return `top -l 1 -n 0 -F|egrep -o '\S+ idle'|awk '{print 100-$1}'` }
+
 func psAuxMemTopOpt(n int) string { return ss.If(n > 0, `|head -n `+strconv.Itoa(n), ``) }
+func psAuxCpuTopOpt(n int) string { return ss.If(n > 0, `|head -n `+strconv.Itoa(n), ``) }
 func psAuxTopOpt(n int) string    { return ss.If(n > 0, `|head -n `+strconv.Itoa(n), ``) }
 
 const memPrefix = `(export TZ=UTC0 LC_ALL=C; ps axo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tt,stat,time,args -m`
+const cpuPrefix = `(export TZ=UTC0 LC_ALL=C; ps axo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tt,stat,time,args -r`
 const prefix = `(export TZ=UTC0 LC_ALL=C; ps axo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tt,stat,time,args`
 const noheading = `|tail -n +2`
 
