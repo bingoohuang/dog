@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+const ver = "v1.0.1 2021-07-22 09:32:19"
+
 // https://github.com/vikyd/go-cpu-load
 func main() {
 	var cores int
@@ -32,7 +34,7 @@ func main() {
 	flag.StringVar(&memory, "m", "", "")
 	flag.DurationVar(&duration, "d", 0, "")
 	flag.Usage = func() {
-		fmt.Printf(`Usage of busy (v1.0.0 2021-07-15):
+		fmt.Printf(`Usage of busy (`+ver+`):
   -c int      使用核数，默认 %d
   -p int      每核 CPU 百分比 (默认 100), 0 时不开启 CPU 耗用
   -l          是否在 CPU 耗用时锁定 OS 线程
@@ -44,7 +46,7 @@ func main() {
 	flag.Parse()
 
 	if version {
-		fmt.Printf("v1.0.0 2021-07-21 13:43:57")
+		fmt.Printf(ver)
 		os.Exit(0)
 	}
 

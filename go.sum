@@ -14,8 +14,8 @@ github.com/averagesecurityguy/random v0.0.0-20180326012618-37cce341d2af h1:P1psV
 github.com/averagesecurityguy/random v0.0.0-20180326012618-37cce341d2af/go.mod h1:xlqW8P0gOqVMB8Kp0mMuUznEi1PzjF+mhHTSC+ymalU=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
-github.com/bingoohuang/gg v0.0.0-20210721053923-00a221f73e29 h1:hGC9SNmZY6ntmLanBz5AMCFO7W08dmtil4t4/UCkML0=
-github.com/bingoohuang/gg v0.0.0-20210721053923-00a221f73e29/go.mod h1:Ax9NyqjaDGWuo4hc5D9HuJ0pyrwTNDRUMPb9VT0b6PM=
+github.com/bingoohuang/gg v0.0.0-20210722013955-2923292fad89 h1:KifrZGlmBwITHFMpR83ydzy1+fiCJMdS1BLdSKSkbNU=
+github.com/bingoohuang/gg v0.0.0-20210722013955-2923292fad89/go.mod h1:Ax9NyqjaDGWuo4hc5D9HuJ0pyrwTNDRUMPb9VT0b6PM=
 github.com/bingoohuang/ginx v0.0.0-20200729033750-047869f5e81c/go.mod h1:fv5fKhsGUfPInVsslF5FJv2oNlZn153C5OogaaUFvFc=
 github.com/bingoohuang/go-yaml v1.8.11-0.20210719040622-7e6a9879a76a h1:sBsvyomm5iSK/9D+LOAxnJ5CDZs8pVBzpj9kA/71Cr0=
 github.com/bingoohuang/go-yaml v1.8.11-0.20210719040622-7e6a9879a76a/go.mod h1:2qy2Tm7ahNpaArz/fFAfHuWS+Pj+afrDbxW5kOelHng=

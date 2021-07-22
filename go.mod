@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/StackExchange/wmi v1.2.0 // indirect
-	github.com/bingoohuang/gg v0.0.0-20210721053923-00a221f73e29
+	github.com/bingoohuang/gg v0.0.0-20210722013955-2923292fad89
 	github.com/bingoohuang/golog v0.0.0-20210712092847-bbd291f6b9d9
 	github.com/bingoohuang/gou v0.0.0-20200225004418-9b3655665c46
 	github.com/go-ole/go-ole v1.2.5 // indirect
