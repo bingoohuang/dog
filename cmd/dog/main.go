@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func (Config) VersionInfo() string { return "dog v1.4.0 2021-07-22 11:15:38" }
+func (Config) VersionInfo() string { return "dog v1.4.1 2021-07-28 12:30:12" }
 
 func (c Config) Usage() string {
 	return fmt.Sprintf(`Usage of dog:
