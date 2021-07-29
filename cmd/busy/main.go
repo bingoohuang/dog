@@ -2,9 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/bingoohuang/dog"
-	flag "github.com/bingoohuang/gg/pkg/fla9"
-	"github.com/bingoohuang/gg/pkg/man"
 	"log"
 	"os"
 	"os/signal"
@@ -12,6 +9,10 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/bingoohuang/dog"
+	flag "github.com/bingoohuang/gg/pkg/fla9"
+	"github.com/bingoohuang/gg/pkg/man"
 )
 
 const ver = "v1.0.1 2021-07-22 09:32:19"
@@ -46,7 +47,7 @@ func main() {
 	flag.Parse()
 
 	if version {
-		fmt.Printf(ver)
+		fmt.Println(ver)
 		os.Exit(0)
 	}
 
@@ -147,7 +148,7 @@ func findItem(pid int) *dog.PsAuxItem {
 	})
 	for _, item := range items {
 		if item.Pid == pid {
-			return &item
+			return item
 		}
 	}
 
@@ -196,43 +197,15 @@ func RunCPULoad(coresCount, percentage int, lockOsThread bool) {
 				runtime.LockOSThread()
 				// runtime.UnlockOSThread()
 			}
-			for { // endless loop
+			for {
 				begin := time.Now()
 				for { // run 100%
-					if time.Now().Sub(begin) > runDuration {
+					if time.Since(begin) > runDuration {
 						break
 					}
 				}
 				time.Sleep(sleepDuration)
 			}
 		}()
-	}
-
-}
-
-func xxx() {
-	duration := flag.Duration("d", 1*time.Minute, "duration")
-	flag.Parse()
-
-	n := runtime.NumCPU()
-	runtime.GOMAXPROCS(n)
-
-	quit := make(chan bool)
-
-	for i := 0; i < n; i++ {
-		go func() {
-			for {
-				select {
-				case <-quit:
-					return
-				default:
-				}
-			}
-		}()
-	}
-
-	time.Sleep(*duration)
-	for i := 0; i < n; i++ {
-		quit <- true
 	}
 }

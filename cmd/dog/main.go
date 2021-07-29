@@ -3,19 +3,20 @@ package main
 import (
 	"embed"
 	"fmt"
+	"log"
+	"runtime"
+	"time"
+
 	"github.com/bingoohuang/dog"
 	"github.com/bingoohuang/gg/pkg/ctl"
 	"github.com/bingoohuang/gg/pkg/flagparse"
 	"github.com/bingoohuang/gg/pkg/ss"
 	"github.com/bingoohuang/golog"
-	"log"
-	"runtime"
-	"time"
 )
 
-func (Config) VersionInfo() string { return "dog v1.4.1 2021-07-28 12:30:12" }
+func (*Config) VersionInfo() string { return "dog v1.4.1 2021-07-28 12:30:12" }
 
-func (c Config) Usage() string {
+func (c *Config) Usage() string {
 	return fmt.Sprintf(`Usage of dog:
   -filter value 命令包含，以!开头为不包含，可以多个值
   -cond string 发送条件，默认触发1次就发信号，eg.3/30s，在30s内发生3次，则触发 
@@ -87,7 +88,7 @@ func main() {
 	ctl.Config{Initing: c.Init, InitFiles: initAssets}.ProcessInit()
 	golog.SetupLogrus()
 
-	watchConfig := dog.WatchConfig{
+	watchConfig := &dog.WatchConfig{
 		Topn:               c.Topn,
 		Pid:                c.Pid,
 		Ppid:               c.Ppid,

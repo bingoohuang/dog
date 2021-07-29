@@ -1,8 +1,9 @@
 package dog
 
 import (
-	"github.com/bingoohuang/gg/pkg/ss"
 	"strconv"
+
+	"github.com/bingoohuang/gg/pkg/ss"
 )
 
 func cpuUsageCmd() string { return `top -l 1 -n 0 -F|egrep -o '\S+ idle'|awk '{print 100-$1}'` }
@@ -11,10 +12,12 @@ func psAuxMemTopOpt(n int) string { return ss.If(n > 0, `|head -n `+strconv.Itoa
 func psAuxCpuTopOpt(n int) string { return ss.If(n > 0, `|head -n `+strconv.Itoa(n), ``) }
 func psAuxTopOpt(n int) string    { return ss.If(n > 0, `|head -n `+strconv.Itoa(n), ``) }
 
-const memPrefix = `(export TZ=UTC0 LC_ALL=C; ps axo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tt,stat,time,args -m`
-const cpuPrefix = `(export TZ=UTC0 LC_ALL=C; ps axo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tt,stat,time,args -r`
-const prefix = `(export TZ=UTC0 LC_ALL=C; ps axo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tt,stat,time,args`
-const noheading = `|tail -n +2`
+const (
+	memPrefix = `(export TZ=UTC0 LC_ALL=C; ps axo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tt,stat,time,args -m`
+	cpuPrefix = `(export TZ=UTC0 LC_ALL=C; ps axo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tt,stat,time,args -r`
+	prefix    = `(export TZ=UTC0 LC_ALL=C; ps axo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tt,stat,time,args`
+	noheading = `|tail -n +2`
+)
 
 // nolint
 const fixedLtime = `|awk '{c="date -jf \"%a %b %e %T %Y\" \""$1 FS $2 FS $3 FS $4 FS $5"\" +\047%Y-%m-%d %H:%M:%S\047"; c|getline d; close(c); $1=$2=$3=$4=$5=""; printf "%s\n",d$0 }' )`

@@ -1,8 +1,9 @@
 package dog
 
 import (
-	"github.com/bingoohuang/gg/pkg/ss"
 	"strconv"
+
+	"github.com/bingoohuang/gg/pkg/ss"
 )
 
 // https://stackoverflow.com/questions/9229333/how-to-get-overall-cpu-usage-e-g-57-on-linux
@@ -14,10 +15,12 @@ func psAuxTopOpt(n int) string {
 	return ss.If(n > 0, `|head -n `+strconv.Itoa(n), ``) //  --sort=-pid --forest
 }
 
-const prefix = `ps axo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tname,stat,time,args`
-const memPrefix = prefix
-const cpuPrefix = prefix
-const noheading = ` --no-heading`
+const (
+	prefix    = `ps axo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tname,stat,time,args`
+	memPrefix = prefix
+	cpuPrefix = prefix
+	noheading = ` --no-heading`
+)
 
 // nolint
 const fixedLtime = `|awk '{c="date -d\""$1 FS $2 FS $3 FS $4 FS $5"\" +\047%Y-%m-%d %H:%M:%S\047"; c|getline d; close(c); $1=$2=$3=$4=$5=""; printf "%s\n",d$0 }'`

@@ -2,11 +2,12 @@ package dog
 
 import (
 	"fmt"
-	"github.com/bingoohuang/gg/pkg/man"
-	"github.com/bingoohuang/gou/str"
 	"log"
 	"regexp"
 	"strconv"
+
+	"github.com/bingoohuang/gg/pkg/man"
+	"github.com/bingoohuang/gou/str"
 
 	"github.com/bingoohuang/gg/pkg/ss"
 	"github.com/gobars/cmd"
@@ -23,7 +24,7 @@ func CpuPercent() (v float32) {
 	return
 }
 
-// PsAuxItem ...
+// PsAuxItem 是一条PS命令输出的各个列信息.
 type PsAuxItem struct {
 	User    string
 	Pid     int
@@ -39,7 +40,7 @@ type PsAuxItem struct {
 	Command string
 }
 
-func (p PsAuxItem) String() string {
+func (p *PsAuxItem) String() string {
 	return fmt.Sprintf("User: %s Pid: %d Ppid: %d %%cpu: %s %%mem: %s VSZ: %s, RSS: %s Tty: %s Stat: %s Start: %s Time: %s Command: %s",
 		p.User, p.Pid, p.Ppid,
 		strconv.FormatFloat(float64(p.Pcpu), 'f', -1, 32),
@@ -48,13 +49,13 @@ func (p PsAuxItem) String() string {
 }
 
 // PsAuxTop ...
-func PsAuxTop(n, printN int, psFn func(topN int, heading bool) string) ([]PsAuxItem, error) {
-	auxItems := make([]PsAuxItem, 0)
+func PsAuxTop(n, printN int, psFn func(topN int, heading bool) string) ([]*PsAuxItem, error) {
+	auxItems := make([]*PsAuxItem, 0)
 	re := regexp.MustCompile(`\s+`)
 	i := 0
 	_, status := cmd.BashLiner(psFn(n, false), func(line string) bool {
 		f := re.Split(line, 13)
-		item := PsAuxItem{
+		item := &PsAuxItem{
 			User:    f[2],
 			Pid:     ss.ParseInt(f[3]),
 			Ppid:    ss.ParseInt(f[4]),

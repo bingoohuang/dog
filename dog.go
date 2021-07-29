@@ -4,26 +4,27 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"github.com/bingoohuang/gg/pkg/man"
-	"github.com/bingoohuang/gg/pkg/ss"
-	"github.com/bingoohuang/gg/pkg/timex"
-	"github.com/gobars/cmd"
-	"github.com/shirou/gopsutil/mem"
 	"log"
 	"math/big"
 	"os"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/bingoohuang/gg/pkg/man"
+	"github.com/bingoohuang/gg/pkg/ss"
+	"github.com/bingoohuang/gg/pkg/timex"
+	"github.com/gobars/cmd"
+	"github.com/shirou/gopsutil/mem"
 )
 
-// Dog 表示 看门狗
+// Dog 表示 看门狗.
 type Dog struct {
 	Config *WatchConfig
 	stop   chan interface{}
 }
 
-func WithConfig(v WatchConfig) WatchOption   { return func(c *WatchConfig) { *c = v } }
+func WithConfig(v *WatchConfig) WatchOption  { return func(c *WatchConfig) { *c = *v } }
 func WithTopn(v int) WatchOption             { return func(c *WatchConfig) { c.Topn = v } }
 func WithPid(v int) WatchOption              { return func(c *WatchConfig) { c.Pid = v } }
 func WithPpid(v int) WatchOption             { return func(c *WatchConfig) { c.Ppid = v } }
@@ -93,7 +94,7 @@ func (d *Dog) StartWatch() {
 	}
 }
 
-// BiteFor 咬人原因
+// BiteFor 咬人原因.
 type BiteFor int
 
 const (
@@ -120,9 +121,12 @@ func (b BiteFor) String() string {
 		return "内存占用第一"
 	case BiteForTopCpu:
 		return "CPU占用第一"
+	case BiteForNone:
+		return "啥都没超"
+	default:
+		return "啥都没超"
 	}
 
-	return "啥都没超"
 }
 
 var pid = os.Getpid()
@@ -210,7 +214,7 @@ func (d *Dog) watch() {
 	}
 }
 
-func exceedMaxTime(item PsAuxItem, layout string, maxTime time.Duration, env string) bool {
+func exceedMaxTime(item *PsAuxItem, layout string, maxTime time.Duration, env string) bool {
 	t, err := time.ParseInLocation(timex.ConvertFormat(layout), item.Start, time.Local)
 	if err != nil {
 		log.Printf("E! failed to parse start time: %v", err)
@@ -230,8 +234,10 @@ var signalMap = map[string]syscall.Signal{
 	"USR1": syscall.SIGUSR1, "USR2": syscall.SIGUSR2,
 }
 
-const TopMemFakePid = -100
-const TopCpuFakePid = -200
+const (
+	TopMemFakePid = -100
+	TopCpuFakePid = -200
+)
 
 func (d *Dog) biteTopCpu(cpuPercent float32) {
 	c := d.Config
@@ -285,7 +291,7 @@ func (d *Dog) biteTopMem(vm *mem.VirtualMemoryStat) {
 		man.Bytes(vm.Available), man.Bytes(vm.Total), man.Bytes(c.MinAvailableMemory))
 }
 
-func (d *Dog) bite(biteFor BiteFor, v PsAuxItem) {
+func (d *Dog) bite(biteFor BiteFor, v *PsAuxItem) {
 	c := d.Config
 	if c.limiter != nil && c.limiter.Allow(v.Pid) {
 		log.Printf("Dog barking for %s, config:%s, item %+v", biteFor, c.RateConfig, v)
@@ -312,7 +318,7 @@ func (d *Dog) bite(biteFor BiteFor, v PsAuxItem) {
 	}
 }
 
-func (d *Dog) Whites(item PsAuxItem) bool {
+func (d *Dog) Whites(item *PsAuxItem) bool {
 	for _, cf := range d.Config.Whites {
 		if ss.ContainsFold(item.Command, cf) {
 			return true // 过滤
@@ -321,7 +327,8 @@ func (d *Dog) Whites(item PsAuxItem) bool {
 
 	return false
 }
-func (d *Dog) Filter(item PsAuxItem) bool {
+
+func (d *Dog) Filter(item *PsAuxItem) bool {
 	for _, cf := range d.Config.CmdFilter {
 		if strings.HasPrefix(cf, "!") {
 			if ss.ContainsFold(item.Command, cf[1:]) {
@@ -356,19 +363,19 @@ func createWatchConfig(options []WatchOption) *WatchConfig {
 	return c
 }
 
-func itemCwd(item PsAuxItem) (l string) {
+func itemCwd(item *PsAuxItem) (l string) {
 	script := fmt.Sprintf(`lsof -p %d | grep cwd | awk '{print $9}'`, item.Pid)
 	cmd.BashLiner(script, func(line string) bool { l = line; return false })
 	return
 }
 
-func itemEnv(item PsAuxItem) (l string) {
+func itemEnv(item *PsAuxItem) (l string) {
 	script := fmt.Sprintf(`ps e -ww -p %d | tail -1`, item.Pid)
 	cmd.BashLiner(script, func(line string) bool { l = line; return false })
 	return
 }
 
-var logItemsRegister = map[string]func(PsAuxItem) string{
+var logItemsRegister = map[string]func(*PsAuxItem) string{
 	"CWD": itemCwd,
 	"ENV": itemEnv,
 }
