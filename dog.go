@@ -240,18 +240,21 @@ const (
 )
 
 func (d *Dog) biteTopCpu(cpuPercent float32) {
-	c := d.Config
-	if c.limiter != nil && c.limiter.Allow(TopCpuFakePid) {
-		log.Printf("Dog barking for cpu percent: %f > config max: %f", cpuPercent, c.MaxHostPcpu)
-		return
-	}
-	log.Printf("Dog biting for cpu percent: %f > config max: %f", cpuPercent, c.MaxHostPcpu)
-
 	items, err := PsAuxTop(10, 0, PasCpuAuxShell)
 	if err != nil {
 		log.Printf("ps aux error: %v", err)
 		return
 	}
+
+	c := d.Config
+	if c.limiter != nil && c.limiter.Allow(TopCpuFakePid) {
+		log.Printf("Dog barking for cpu percent: %f > config max: %f", cpuPercent, c.MaxHostPcpu)
+		if len(items) > 0 {
+			log.Printf("the top1 is: %v", items[0])
+		}
+		return
+	}
+	log.Printf("Dog biting for cpu percent: %f > config max: %f", cpuPercent, c.MaxHostPcpu)
 
 	for _, v := range items {
 		if !d.Whites(v) {
@@ -264,21 +267,25 @@ func (d *Dog) biteTopCpu(cpuPercent float32) {
 }
 
 func (d *Dog) biteTopMem(vm *mem.VirtualMemoryStat) {
-	c := d.Config
-	if c.limiter != nil && c.limiter.Allow(TopMemFakePid) {
-		log.Printf("Dog barking for low Available memory: %s/%s < config min: %s",
-			man.Bytes(vm.Available), man.Bytes(vm.Total), man.Bytes(c.MinAvailableMemory))
-		return
-	}
-
-	log.Printf("Dog biting for low Available memory: %s/%s < config min: %s",
-		man.Bytes(vm.Available), man.Bytes(vm.Total), man.Bytes(c.MinAvailableMemory))
-
 	items, err := PsAuxTop(10, 0, PasMemAuxShell)
 	if err != nil {
 		log.Printf("ps aux error: %v", err)
 		return
 	}
+
+	c := d.Config
+	if c.limiter != nil && c.limiter.Allow(TopMemFakePid) {
+		log.Printf("Dog barking for low Available memory: %s/%s < config min: %s",
+			man.Bytes(vm.Available), man.Bytes(vm.Total), man.Bytes(c.MinAvailableMemory))
+
+		if len(items) > 0 {
+			log.Printf("the top1 is: %v", items[0])
+		}
+		return
+	}
+
+	log.Printf("Dog biting for low Available memory: %s/%s < config min: %s",
+		man.Bytes(vm.Available), man.Bytes(vm.Total), man.Bytes(c.MinAvailableMemory))
 
 	for _, v := range items {
 		if !d.Whites(v) {

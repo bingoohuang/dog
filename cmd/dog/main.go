@@ -14,7 +14,7 @@ import (
 	"github.com/bingoohuang/golog"
 )
 
-func (*Config) VersionInfo() string { return "dog v1.4.1 2021-07-28 12:30:12" }
+func (*Config) VersionInfo() string { return "dog v1.4.2 2021-08-09 17:40:53" }
 
 func (c *Config) Usage() string {
 	return fmt.Sprintf(`Usage of dog:
