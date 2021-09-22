@@ -13,10 +13,11 @@ func psAuxCpuTopOpt(n int) string { return ss.If(n > 0, `|head -n `+strconv.Itoa
 func psAuxTopOpt(n int) string    { return ss.If(n > 0, `|head -n `+strconv.Itoa(n), ``) }
 
 const (
-	memPrefix = `(export TZ=UTC0 LC_ALL=C; ps axo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tt,stat,time,args -m`
-	cpuPrefix = `(export TZ=UTC0 LC_ALL=C; ps axo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tt,stat,time,args -r`
-	prefix    = `(export TZ=UTC0 LC_ALL=C; ps axo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tt,stat,time,args`
-	noheading = `|tail -n +2`
+	memPrefix  = `(export TZ=UTC0 LC_ALL=C; ps xo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tt,stat,time,args -m`
+	cpuPrefix  = `(export TZ=UTC0 LC_ALL=C; ps xo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tt,stat,time,args -r`
+	prefix     = `(export TZ=UTC0 LC_ALL=C; ps xo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tt,stat,time,args`
+	noheading  = `|tail -n +2`
+	pidPostfix = ` -p `
 )
 
 // nolint

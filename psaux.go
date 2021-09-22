@@ -124,8 +124,6 @@ func PsAuxPid(topN, pid int, heading bool) string {
 	return prefix + ss.If(heading, "", noheading) + pidPostfix + fmt.Sprintf("%d", pid) + psAuxTopOpt(topN) + fixedLtime
 }
 
-const pidPostfix = ` -p `
-
 // PasAuxShell ...
 func PasAuxShell(topN int, heading bool) string {
 	return prefix + ss.If(heading, "", noheading) + psAuxTopOpt(topN) + fixedLtime

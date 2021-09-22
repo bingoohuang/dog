@@ -16,10 +16,11 @@ func psAuxTopOpt(n int) string {
 }
 
 const (
-	prefix    = `ps axo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tname,stat,time,args`
-	memPrefix = prefix
-	cpuPrefix = prefix
-	noheading = ` --no-heading`
+	prefix     = `ps -xo lstart,user,pid,ppid,pcpu,pmem,vsz,rss,tname,stat,time,args`
+	memPrefix  = prefix
+	cpuPrefix  = prefix
+	noheading  = ` --no-heading`
+	pidPostfix = ` -q `
 )
 
 // nolint
