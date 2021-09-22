@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/bingoohuang/dog"
-	"github.com/bingoohuang/gg/pkg/ctl"
 	"github.com/bingoohuang/gg/pkg/flagparse"
 	"github.com/bingoohuang/gg/pkg/ss"
 	"github.com/bingoohuang/golog"
@@ -84,17 +83,18 @@ var initAssets embed.FS
 
 func main() {
 	c := &Config{}
-	flagparse.Parse(c, flagparse.AutoLoadYaml("c", "dog.yml"))
-	ctl.Config{Initing: c.Init, InitFiles: initAssets}.ProcessInit()
+	flagparse.Parse(c, flagparse.AutoLoadYaml("c", "dog.yml"), flagparse.ProcessInit(&initAssets))
 	golog.SetupLogrus()
-
+	splitter := func(s string) []string {
+		return ss.Split(s, ss.WithCase(ss.CaseUpper), ss.WithIgnoreEmpty(true), ss.WithTrimSpace(true))
+	}
 	watchConfig := &dog.WatchConfig{
 		Topn:               c.Topn,
 		Pid:                c.Pid,
 		Ppid:               c.Ppid,
 		Self:               c.Self,
-		KillSignals:        ss.Split(c.Kill, ss.WithUpper, ss.WithIgnoreEmpty, ss.WithTrimSpace),
-		LogItems:           ss.Split(c.Log, ss.WithUpper, ss.WithIgnoreEmpty, ss.WithTrimSpace),
+		KillSignals:        splitter(c.Kill),
+		LogItems:           splitter(c.Log),
 		Interval:           c.Span,
 		Jitter:             c.Jitter,
 		MaxTime:            c.MaxTime,

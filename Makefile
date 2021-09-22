@@ -12,5 +12,5 @@ lint:
 	go fmt ./...
 	revive .
 	goimports -w .
-	golangci-lint run --enable-all
+	golangci-lint run
 

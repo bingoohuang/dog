@@ -7,8 +7,6 @@ import (
 	"strconv"
 
 	"github.com/bingoohuang/gg/pkg/man"
-	"github.com/bingoohuang/gou/str"
-
 	"github.com/bingoohuang/gg/pkg/ss"
 	"github.com/gobars/cmd"
 )
@@ -84,24 +82,24 @@ func PsAuxTop(n, printN int, psFn func(topN int, heading bool) string) ([]*PsAux
 
 // PasAuxPid ...
 func PasAuxPid(topN, pid int, heading bool) string {
-	return prefix + str.If(heading, "", noheading) + pidPostfix + fmt.Sprintf("%d", pid) + psAuxTopOpt(topN) + fixedLtime
+	return prefix + ss.If(heading, "", noheading) + pidPostfix + fmt.Sprintf("%d", pid) + psAuxTopOpt(topN) + fixedLtime
 }
 
 const pidPostfix = ` -p `
 
 // PasAuxShell ...
 func PasAuxShell(topN int, heading bool) string {
-	return prefix + str.If(heading, "", noheading) + psAuxTopOpt(topN) + fixedLtime
+	return prefix + ss.If(heading, "", noheading) + psAuxTopOpt(topN) + fixedLtime
 }
 
 // PasCpuAuxShell ...
 func PasCpuAuxShell(topN int, heading bool) string {
-	return cpuPrefix + str.If(heading, "", noheading) + psAuxCpuTopOpt(topN) + fixedLtime
+	return cpuPrefix + ss.If(heading, "", noheading) + psAuxCpuTopOpt(topN) + fixedLtime
 }
 
 // PasMemAuxShell ...
 func PasMemAuxShell(topN int, heading bool) string {
-	return memPrefix + str.If(heading, "", noheading) + psAuxMemTopOpt(topN) + fixedLtime
+	return memPrefix + ss.If(heading, "", noheading) + psAuxMemTopOpt(topN) + fixedLtime
 }
 
 /*
