@@ -185,10 +185,12 @@ func (d *Dog) watch() {
 		return
 	}
 
-	for _, v := range items {
-		if d.Filter(v) || d.Whites(v) {
+	for _, r := range items {
+		if d.Filter(r) || d.Whites(r) {
 			continue
 		}
+
+		v := r.ToPsAuxItem()
 		if c.Pid > 0 && v.Pid != c.Pid || c.Ppid > 0 && v.Ppid != c.Ppid || c.Self && c.Pid != pid {
 			continue
 		}
@@ -257,7 +259,7 @@ func (d *Dog) biteTopCpu(cpuPercent float32) {
 
 	for _, v := range items {
 		if !d.Whites(v) {
-			d.bite(BiteForTopCpu, v)
+			d.bite(BiteForTopCpu, v.ToPsAuxItem())
 			return
 		}
 	}
@@ -288,7 +290,7 @@ func (d *Dog) biteTopMem(vm *mem.VirtualMemoryStat) {
 
 	for _, v := range items {
 		if !d.Whites(v) {
-			d.bite(BiteForTopMem, v)
+			d.bite(BiteForTopMem, v.ToPsAuxItem())
 			return
 		}
 	}
@@ -324,7 +326,7 @@ func (d *Dog) bite(biteFor BiteFor, v *PsAuxItem) {
 	}
 }
 
-func (d *Dog) Whites(item *PsAuxItem) bool {
+func (d *Dog) Whites(item PsAuxRawItem) bool {
 	for _, cf := range d.Config.Whites {
 		if ss.ContainsFold(item.Command, cf) {
 			return true // 过滤
@@ -334,7 +336,7 @@ func (d *Dog) Whites(item *PsAuxItem) bool {
 	return false
 }
 
-func (d *Dog) Filter(item *PsAuxItem) bool {
+func (d *Dog) Filter(item PsAuxRawItem) bool {
 	for _, cf := range d.Config.CmdFilter {
 		if strings.HasPrefix(cf, "!") {
 			if ss.ContainsFold(item.Command, cf[1:]) {

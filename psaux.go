@@ -3,6 +3,7 @@ package dog
 import (
 	"fmt"
 	"log"
+	"os"
 	"regexp"
 	"strconv"
 
@@ -38,7 +39,23 @@ type PsAuxItem struct {
 	Command string
 }
 
-func (p *PsAuxItem) String() string {
+// PsAuxRawItem 是一条PS命令输出的各个列原始信息.
+type PsAuxRawItem struct {
+	User    string
+	Pid     string
+	Ppid    string
+	Pcpu    string
+	Pmem    string
+	Vsz     string
+	Rss     string
+	Tty     string
+	Stat    string
+	Start   string
+	Time    string
+	Command string
+}
+
+func (p PsAuxItem) String() string {
 	return fmt.Sprintf("User: %s Pid: %d Ppid: %d %%cpu: %s %%mem: %s VSZ: %s, RSS: %s Tty: %s Stat: %s Start: %s Time: %s Command: %s",
 		p.User, p.Pid, p.Ppid,
 		strconv.FormatFloat(float64(p.Pcpu), 'f', -1, 32),
@@ -47,27 +64,11 @@ func (p *PsAuxItem) String() string {
 }
 
 // PsAuxTop ...
-func PsAuxTop(n, printN int, psFn func(topN int, heading bool) string) ([]*PsAuxItem, error) {
-	auxItems := make([]*PsAuxItem, 0)
-	re := regexp.MustCompile(`\s+`)
+func PsAuxTop(n, printN int, psFn func(topN int, heading bool) string) ([]PsAuxRawItem, error) {
 	i := 0
+	auxItems := make([]PsAuxRawItem, 0)
 	_, status := cmd.BashLiner(psFn(n, false), func(line string) bool {
-		f := re.Split(line, 13)
-		item := &PsAuxItem{
-			User:    f[2],
-			Pid:     ss.ParseInt(f[3]),
-			Ppid:    ss.ParseInt(f[4]),
-			Pcpu:    ss.ParseFloat32(f[5]),
-			Pmem:    ss.ParseFloat32(f[6]),
-			Vsz:     ss.ParseUint64(f[7]) * 1024,
-			Rss:     ss.ParseUint64(f[8]) * 1024,
-			Tty:     f[9],
-			Stat:    f[10],
-			Start:   f[0] + ` ` + f[1],
-			Time:    f[11],
-			Command: f[12],
-		}
-
+		item := splitLine(line)
 		if i < printN {
 			log.Printf("%s", item)
 		}
@@ -80,8 +81,46 @@ func PsAuxTop(n, printN int, psFn func(topN int, heading bool) string) ([]*PsAux
 	return auxItems, status.Error
 }
 
-// PasAuxPid ...
-func PasAuxPid(topN, pid int, heading bool) string {
+func (p PsAuxRawItem) ToPsAuxItem() *PsAuxItem {
+	return &PsAuxItem{
+		User:    p.User,
+		Pid:     ss.ParseInt(p.Pid),
+		Ppid:    ss.ParseInt(p.Ppid),
+		Pcpu:    ss.ParseFloat32(p.Pcpu),
+		Pmem:    ss.ParseFloat32(p.Pmem),
+		Vsz:     ss.ParseUint64(p.Vsz) * 1024,
+		Rss:     ss.ParseUint64(p.Rss) * 1024,
+		Tty:     p.Tty,
+		Stat:    p.Stat,
+		Start:   p.Start,
+		Time:    p.Time,
+		Command: p.Command,
+	}
+}
+
+var Pid = os.Getpid()
+
+// ExecPsAuxSelf execute ps command with specific self pid.
+func ExecPsAuxSelf() (item *PsAuxRawItem, err error) {
+	return ExecPsAuxPid(Pid)
+}
+
+var re = regexp.MustCompile(`\s+`)
+
+// ExecPsAuxPid execute ps command with specific pid.
+func ExecPsAuxPid(pid int) (item *PsAuxRawItem, err error) {
+	shell := PsAuxPid(0, pid, false)
+	_, status := cmd.BashLiner(shell, func(line string) bool {
+		a := splitLine(line)
+		item = &a
+		return true
+	})
+
+	return item, status.Error
+}
+
+// PsAuxPid ...
+func PsAuxPid(topN, pid int, heading bool) string {
 	return prefix + ss.If(heading, "", noheading) + pidPostfix + fmt.Sprintf("%d", pid) + psAuxTopOpt(topN) + fixedLtime
 }
 
@@ -100,6 +139,24 @@ func PasCpuAuxShell(topN int, heading bool) string {
 // PasMemAuxShell ...
 func PasMemAuxShell(topN int, heading bool) string {
 	return memPrefix + ss.If(heading, "", noheading) + psAuxMemTopOpt(topN) + fixedLtime
+}
+
+func splitLine(line string) PsAuxRawItem {
+	f := re.Split(line, 13)
+	return PsAuxRawItem{
+		User:    f[2],
+		Pid:     f[3],
+		Ppid:    f[4],
+		Pcpu:    f[5],
+		Pmem:    f[6],
+		Vsz:     f[7],
+		Rss:     f[8],
+		Tty:     f[9],
+		Stat:    f[10],
+		Start:   f[0] + ` ` + f[1],
+		Time:    f[11],
+		Command: f[12],
+	}
 }
 
 /*
