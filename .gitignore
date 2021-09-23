@@ -12,6 +12,6 @@
 *.out
 .idea
 /ctl
-/dog.yml
+/dogwatch.yml
 /var
 /vendor

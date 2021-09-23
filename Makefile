@@ -1,9 +1,10 @@
 default:
 	go install -trimpath -ldflags='-s -w' ./...
-	upx ~/go/bin/dog
+	upx ~/go/bin/dog*
 linux:
 	GOOS=linux GOARCH=amd64 go install -trimpath -ldflags='-extldflags=-static -s -w' ./...
-	upx ~/go/bin/linux_amd64/dog
+	upx ~/go/bin/linux_amd64/dog*
+	bssh scp ~/go/bin/linux_amd64/dog* r:/usr/local/bin/
 	# ldd /usr/local/bin/busy
 lint:
 	go mod tidy

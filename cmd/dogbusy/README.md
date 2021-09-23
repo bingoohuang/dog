@@ -8,15 +8,15 @@ Generate CPU load on Windows/Linux/Mac.
 
 example 01: run 30% of all CPU cores for 10 seconds.
 
-`busy -p 30 -d 10s`
+`dogbusy -p 30 -d 10s`
 
 example 02: run 30% of all CPU cores forever.
 
-`busy -p 30`
+`dogbusy -p 30`
 
 example 03: run 30% of 2 of CPU cores for 10 seconds.
 
-`busy -p 30 -c 2 -d 10s`
+`dogbusy -p 30 -c 2 -d 10s`
 
 - `top CPU load` = `c` \* `p`
 - may not specify cores run the load only, it just promises the `all CPU load`, and not promise each cores run the same
@@ -25,7 +25,7 @@ example 03: run 30% of 2 of CPU cores for 10 seconds.
 # Parameters
 
 ```
-Usage of busy:
+Usage of dogbusy:
   -c int
         how many cores (default cpu cores)
   -d duration

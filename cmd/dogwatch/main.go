@@ -3,7 +3,9 @@ package main
 import (
 	"embed"
 	"fmt"
+	"github.com/bingoohuang/gg/pkg/v"
 	"log"
+	"os"
 	"runtime"
 	"time"
 
@@ -13,10 +15,10 @@ import (
 	"github.com/bingoohuang/golog"
 )
 
-func (*Config) VersionInfo() string { return "dog v1.4.2 2021-08-09 17:40:53" }
+func (*Config) VersionInfo() string { return v.Version() }
 
 func (c *Config) Usage() string {
-	return fmt.Sprintf(`Usage of dog:
+	return fmt.Sprintf(`Usage of %s:
   -filter value 命令包含，以!开头为不包含，可以多个值
   -cond string 发送条件，默认触发1次就发信号，eg.3/30s，在30s内发生3次，则触发 
   -kill string 发送信号，多个逗号分隔，eg. INT,TERM,KILL,QUIT,USR1,USR2 (默认 INT)
@@ -36,12 +38,12 @@ func (c *Config) Usage() string {
   -jitter duration 最大抖动 (默认 1s)
   -topn int 只取前N个检查
   -v Print version info and exit`,
-		runtime.NumCPU()*100, runtime.NumCPU()*50)
+		os.Args[0], runtime.NumCPU()*100, runtime.NumCPU()*50)
 }
 
 type Config struct {
 	Config string `flag:"c" usage:"yaml config filepath"`
-	Init   bool   `usage:"init example dog.yml/ctl and then exit"`
+	Init   bool   `usage:"init example dogwatch.yml/ctl and then exit"`
 
 	Topn       int
 	Pid        int
@@ -83,7 +85,9 @@ var initAssets embed.FS
 
 func main() {
 	c := &Config{}
-	flagparse.Parse(c, flagparse.AutoLoadYaml("c", "dog.yml"), flagparse.ProcessInit(&initAssets))
+	flagparse.Parse(c,
+		flagparse.AutoLoadYaml("c", "dogwatch.yml"),
+		flagparse.ProcessInit(&initAssets))
 	golog.SetupLogrus()
 	splitter := func(s string) []string {
 		return ss.Split(s, ss.WithCase(ss.CaseUpper), ss.WithIgnoreEmpty(true), ss.WithTrimSpace(true))

@@ -35,14 +35,14 @@ func main() {
 	flag.StringVar(&memory, "m", "", "")
 	flag.DurationVar(&duration, "d", 0, "")
 	flag.Usage = func() {
-		fmt.Printf(`Usage of busy (`+ver+`):
+		fmt.Printf(`Usage of %s (`+ver+`):
   -c int      使用核数，默认 %d
   -p int      每核 CPU 百分比 (默认 100), 0 时不开启 CPU 耗用
   -l          是否在 CPU 耗用时锁定 OS 线程
-  -m string   总内存耗用，默认不开启, eg. 1) 10M 直达10M 2) 10M,1K/10s 总10M,每10秒加1K
-  -d duration 跑多久，默认一直跑
+  -m string   总内存耗用，默认不开启, e.g. 1) 10M 直达10M 2) 10M,1K/10s 总10M,每10秒加1K
+  -d duration 跑多久，默认一直跑，e.g. 10s 20m 30h
   -v          看下版本号
-`, runtime.NumCPU())
+`, os.Args[0], runtime.NumCPU())
 	}
 	flag.Parse()
 
