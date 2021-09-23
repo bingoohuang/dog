@@ -3,11 +3,12 @@ package main
 import (
 	"embed"
 	"fmt"
-	"github.com/bingoohuang/gg/pkg/v"
 	"log"
 	"os"
 	"runtime"
 	"time"
+
+	"github.com/bingoohuang/gg/pkg/v"
 
 	"github.com/bingoohuang/dog"
 	"github.com/bingoohuang/gg/pkg/flagparse"

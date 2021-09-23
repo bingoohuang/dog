@@ -10,12 +10,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bingoohuang/gg/pkg/v"
+
 	"github.com/bingoohuang/dog"
 	flag "github.com/bingoohuang/gg/pkg/fla9"
 	"github.com/bingoohuang/gg/pkg/man"
 )
-
-const ver = "v1.0.1 2021-07-22 09:32:19"
 
 // https://github.com/vikyd/go-cpu-load
 func main() {
@@ -35,7 +35,7 @@ func main() {
 	flag.StringVar(&memory, "m", "", "")
 	flag.DurationVar(&duration, "d", 0, "")
 	flag.Usage = func() {
-		fmt.Printf(`Usage of %s (`+ver+`):
+		fmt.Printf(`Usage of %s:
   -c int      使用核数，默认 %d
   -p int      每核 CPU 百分比 (默认 100), 0 时不开启 CPU 耗用
   -l          是否在 CPU 耗用时锁定 OS 线程
@@ -47,7 +47,7 @@ func main() {
 	flag.Parse()
 
 	if version {
-		fmt.Println(ver)
+		fmt.Println(v.Version())
 		os.Exit(0)
 	}
 

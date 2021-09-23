@@ -15,7 +15,7 @@ watchdog for RSS/CPU
 
 ## 部署
 
-1. `dog --init` 在当前目录创建 `ctl` 脚本和 示例 `dog.yml`
+1. `dogwatch --init` 在当前目录创建 `ctl` 脚本和 示例 `dogwatch.yml`
 1. `./ctl start` 启动； `./ctl stop` 停止；`./ctl restart` 重新启动；`./ctl tail` 查看日志；
 
 ## demo
@@ -25,7 +25,7 @@ watchdog for RSS/CPU
 启动测试目标：
 
 ```sh
-$ busy -p50             
+$ dogbusy -p50             
 2021/07/14 16:29:44 busy starting, pid 45198
 2021/07/14 16:29:44  run 50% of 12/12 CPU cores forever
 ```
@@ -33,7 +33,7 @@ $ busy -p50
 放狗，咬死超过50%：
 
 ```sh
-$ GOLOG_STDOUT=true dog -max-pcpu 500 -filter busy -cond 2/30s -log ENV,CWD
+$ GOLOG_STDOUT=true dogwatch -max-pcpu 500 -filter busy -cond 2/30s -log ENV,CWD
 2021-07-15 10:00:53.059 [INFO ] 625 --- [1    ] [-]  : log file created:~/logs/dog/dog.log
 2021-07-15 10:00:53.060 [INFO ] 625 --- [1    ] [-]  : dog with config: &{Topn:0 Pid:0 Ppid:0 Self:false KillSignals:[INT KILL] Interval:10s MaxMem:0 MaxPmem:50 MaxPcpu:300 CmdFilter:[] LogItems:[ENV CWD] RateConfig:2/30s limiter:0xc000082f80 Jitter:1s} created
 2021-07-15 10:00:56.515 [INFO ] 625 --- [1    ] [-]  : Dog barking for 3, config:2/30s, item User: bingoo Pid: 98283 Ppid: 66509 %cpu: 563 %mem: 0 VSZ: 5.1GB, RSS: 3.8MB Tty: s002 Stat: R+ Start: 2021-07-15 02:00:08 Time: 3:59.93 Command: busy -p50
@@ -57,7 +57,7 @@ $ GOLOG_STDOUT=true dog -max-pcpu 500 -filter busy -cond 2/30s -log ENV,CWD
 启动测试目标：
 
 ```sh
-$ SHORT_TASK=true busy -p20
+$ SHORT_TASK=true dogbusy -p20
 2021/07/15 10:27:56 busy starting, pid 63610
 2021/07/15 10:27:56  run 20% of 12/12 CPU cores forever.
 2021/07/15 10:29:09 received signal interrupt, exiting
@@ -66,7 +66,7 @@ $ SHORT_TASK=true busy -p20
 放狗，咬死超过10s：
 
 ```sh
-$ GOLOG_STDOUT=true dog -max-time 10s -max-time-env SHORT_TASK -cond 2/30s -log ENV,CWD
+$ GOLOG_STDOUT=true dogwatch -max-time 10s -max-time-env SHORT_TASK -cond 2/30s -log ENV,CWD
 2021-07-15 10:28:11.375 [INFO ] 64264 --- [1    ] [-]  : log file created:~/logs/dog/dog.log
 2021-07-15 10:28:11.376 [INFO ] 64264 --- [1    ] [-]  : dog with config: &{Topn:0 Pid:0 Ppid:0 Self:false KillSignals:[INT KILL] Interval:10s MaxMem:0 MaxPmem:50 MaxPcpu:300 CmdFilter:[] LogItems:[ENV CWD] RateConfig:2/30s limiter:0xc0001100c0 Jitter:1s MaxTime:10s MaxTimeEnv:SHORT_TASK} created
 2021-07-15 10:28:19.048 [INFO ] 64264 --- [1    ] [-]  : Dog barking for 运行时长超了, config:2/30s, item User: bingoo Pid: 63610 Ppid: 66509 %cpu: 203.6 %mem: 0 VSZ: 5.1GB, RSS: 3.7MB Tty: s002 Stat: S+ Start: 2021-07-15 02:27:e: 0:33.48 Command: busy -p20
@@ -84,8 +84,8 @@ $ GOLOG_STDOUT=true dog -max-time 10s -max-time-env SHORT_TASK -cond 2/30s -log 
 ## help
 
 ```sh
-$ dog -h     
-Usage of dog:
+$ dogwatch -h
+Usage of dogwatch:
   -filter value 命令包含，以!开头为不包含，可以多个值
   -cond string 发送条件，默认触发1次就发信号，eg.3/30s，在30s内发生3次，则触发 
   -kill string 发送信号，多个逗号分隔，eg. INT,TERM,KILL,QUIT,USR1,USR2 (默认 INT)
@@ -106,12 +106,14 @@ Usage of dog:
   -topn int 只取前N个检查
   -v Print version info and exit
 
-$ busy -h               
-Usage of busy:
-  -c int 使用核数，默认 12
-  -d duration 跑多久，默认一直跑
-  -m string 总内存,增量, eg. 1) 10M 直接达到10M 2) 10M,1K/10s 总用量10M,每10秒增加1K
-  -p int 每核CPU百分比 (默认 100)
+$ dogbusy -h               
+Usage of dogbusy:
+  -c int      使用核数，默认 12
+  -p int      每核 CPU 百分比 (默认 100), 0 时不开启 CPU 耗用
+  -l          是否在 CPU 耗用时锁定 OS 线程
+  -m string   总内存耗用，默认不开启, e.g. 1) 10M 直达10M 2) 10M,1K/10s 总10M,每10秒加1K
+  -d duration 跑多久，默认一直跑，e.g. 10s 20m 30h
+  -v          看下版本号
 ```
 
 ## 检查狗咬日志
