@@ -25,10 +25,12 @@ default:init
 linux: init
 	GOOS=linux GOARCH=amd64 go install -trimpath -ldflags=${flags2}  ./...
 	upx ~/go/bin/linux_amd64/${app}*
+	bssh scp ~/go/bin/linux_amd64/${app}* r:/usr/local/bin/
 linux-arm64: init
 	GOOS=linux GOARCH=arm64 go install -trimpath -ldflags=${flags2}  ./...
 	upx ~/go/bin/linux_arm64/${app}*
 	# ldd /usr/local/bin/busy
+	bssh scp ~/go/bin/linux_amd64/${app}* r:/usr/local/bin/
 lint-all:
 	golangci-lint run --enable-all
 
