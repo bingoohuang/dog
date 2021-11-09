@@ -15,8 +15,8 @@ watchdog for RSS/CPU
 
 ## 部署
 
-1. `dogwatch --init` 在当前目录创建 `ctl` 脚本和 示例 `dogwatch.yml`
-1. `./ctl start` 启动； `./ctl stop` 停止；`./ctl restart` 重新启动；`./ctl tail` 查看日志；
+1. `dogwatch --init` 在当前目录创建 `ctl` 启停 shell 脚本和 示例配置文件 `dogwatch.yml`
+1. `./ctl start` 后台启动； `./ctl stop` 停止；`./ctl restart` 重新启动；`./ctl tail` 查看日志；
 
 ## demo
 

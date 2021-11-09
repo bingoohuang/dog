@@ -89,7 +89,7 @@ func main() {
 	flagparse.Parse(c,
 		flagparse.AutoLoadYaml("c", "dogwatch.yml"),
 		flagparse.ProcessInit(&initAssets))
-	golog.SetupLogrus()
+	golog.Setup()
 	splitter := func(s string) []string {
 		return ss.Split(s, ss.WithCase(ss.CaseUpper), ss.WithIgnoreEmpty(true), ss.WithTrimSpace(true))
 	}
