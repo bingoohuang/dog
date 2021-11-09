@@ -80,16 +80,14 @@ func (d *Dog) StartWatch() {
 	ticker := time.NewTicker(d.Config.Interval)
 	defer ticker.Stop()
 
-	d.watch()
-
 	for {
+		d.watch()
 		RandomSleep(d.Config.Jitter)
 
 		select {
 		case <-d.stop:
 			return
 		case <-ticker.C:
-			d.watch()
 		}
 	}
 }
