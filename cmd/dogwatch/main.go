@@ -27,8 +27,8 @@ func (c *Config) Usage() string {
   -max-time value 允许最大启动时长 (默认 0，不检查启动时长)
   -max-time-env value 允许最大启动时长包含的环境变量
   -max-mem value 允许最大内存 (默认 0B，不检查内存)
-  -max-pcpu int 允许内存最大百分比, eg. 1-%d (默认 %d), 0 不查 CPU
-  -max-pmem int 允许CPU最大百分比, eg. 1-100 (默认 50)
+  -max-pcpu int 允许CPU最大百分比, eg. 1-%d (默认 %d), 0 不查 CPU
+  -max-pmem int 允许内存最大百分比, eg. 1-100 (默认 50)
   -min-available-memory 允许最小总可用内存 (默认 0B，不检查此项)
   -max-host-cpu 允许最大机器CPU百分比（0-100） (默认 0，不检查此项)
   -whites value 总最小内存/最大机器CPU百分比触发时，驱逐进程命令行包含白名单，可以多个值

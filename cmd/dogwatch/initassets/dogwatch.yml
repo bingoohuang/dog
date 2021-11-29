@@ -14,9 +14,9 @@ MaxTime: 0
 MaxTimeEnv: SHORT_TASK_FOR_DOG
 # 允许最大内存 (默认 0B，不检查内存)
 MaxMem: "8GiB"
-# 允许内存最大百分比, eg 0-1200 (默认 300), 0 不查 CPU
+# 允许CPU最大百分比, eg 0-1200 (默认 300), 0 不查 CPU
 MaxPcpu: 300
-# 允许CPU最大百分比, eg 1-100 (默认 50)
+# 允许内存最大百分比, eg 1-100 (默认 50)
 MaxPmem: 50
 # 允许最小总可用内存 (默认 0B，不检查此项)
 MinAvailableMemory: "1GiB"
